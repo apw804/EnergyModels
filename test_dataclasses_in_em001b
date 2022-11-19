@@ -1,0 +1,82 @@
+# Keith Briggs 2022-10-14 16:06 - note code suggestions here!
+# Kishan Sthankiya
+# 2022-10-12 16:39:48 Basic script to check understanding of AIMM_core_simulator_17.py changes
+# Example: python3 em001.py -ncells=1 -nues=1 -until=100
+
+import argparse
+from dataclasses import dataclass
+from os import getcwd
+from pathlib import Path
+from sys import path
+from time import localtime, strftime, strptime, time
+
+path.append(f'{str(Path.home())}/AIMM_simulator-1.0/')
+from dataclasses import dataclass
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from AIMM_simulator_core_17 import (UE, Cell, Logger, Scenario, Sim, from_dB,
+                                    to_dB)
+from NR_5G_standard_functions_00 import Radio_state
+from numpy.random import seed, standard_normal  # OLD!
+
+seed(0) # FIXME
+
+def fig_timestamp(fig,fontsize=6,color='black',alpha=0.7,rotation=0,prespace='  ',author=''):
+  # add an author and date-time to bottom of plot
+  date=strftime('%Y-%m-%d %H:%M',localtime())
+  fig.text( # position text relative to Figure
+    0.01,0.005,prespace+f'{author} {date}',
+    ha='left',va='bottom',fontsize=fontsize,color=color,
+    rotation=rotation, transform=fig.transFigure,alpha=alpha)
+
+@dataclass
+class MacroCellParameters:
+  ''' Object for setting macro cell base station parameters.'''
+  eta_PA:float=               0.067
+  power_RF_watts:float=      12.9
+  power_baseband_watts:float=29.6
+  loss_feed_dB:float=        -3.0
+  loss_DC_dB:float=           0.075
+  loss_cool_dB:float=         0.10
+  loss_mains_dB:float=        0.09
+
+@dataclass
+class SmallCellParameters:
+  ''' Object for setting small cell base station parameters.'''
+  eta_PA:float=              0.067
+  power_RF_watts:float=      1.0
+  power_baseband_watts:float=3.0
+  loss_feed_dB:float=        0.00
+  loss_DC_dB:float=          0.09
+  loss_cool_dB:float=        0.00
+  loss_mains_dB:float=       0.11
+
+class QM_Energy_001:
+  ''' Initial energy model based on EARTH framework for a macro base station.'''
+
+  def __init__(self, sim):
+    '''
+    Variable initialisation.
+    '''
+    self.sim=sim
+    for cell in sim.cells:
+      if cell.power_dBm>=30:
+        self.cell_pa=MacroCellParameters()
+      else:
+        self.cell_params=SmallCellParameters()
+
+def test(ncells=1):
+  interval=1.0e0 # KB cell interval - other intervals will be scaled to this
+  sim = Sim()
+  for i in range(ncells):
+    sim.make_cell(interval=interval,power_dBm=30)
+  for cell in sim.cells:
+    print(f'Cell {cell.i} has been created.')
+    print(f'Cell {cell.i} has max transmit power {cell.power_dBm} dBm.')
+    print(f'Cell {cell.i} base station parameters are:')
+    print(f'{QM_Energy_001(sim).cell_params}')
+    print(f'pause')
+
+test()
