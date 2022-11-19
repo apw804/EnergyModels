@@ -1,6 +1,7 @@
 # Kishan Sthankiya
 # 2022-11-15 10:00:12
 # Restructure of code with different working parts
+# Dataframe needs Jinja2. Install with pip or conda.
 
 import math
 from dataclasses import dataclass
@@ -163,12 +164,10 @@ class EarthModel:
     Based on EARTH framework (10.1109/MWC.2011.6056691).
     """
 
-    def __init__(self, sim, cell):
-        self.sim = sim
+    def __init__(self, cell):
         self.cell = cell
-        self.bs_power_dbm = self.cell.get_power_dBm()
-        self.bs_power_watts = from_dB(self.bs_power_dbm)
-        if self.bs_power_dbm < 30:
+        self.bs_power_watts = from_dB(self.cell.get_power_dBm)
+        if self.cell.get_power_dBm < 30:
             self.cell.params = SmallCellParameters()
         else:
             self.cell.params = MacroCellParameters()
@@ -195,7 +194,7 @@ class EarthModel:
         current radio state.
         """
         max_rbs = Radio_state.nPRB
-        return self.bs_power_dbm - to_dB(max_rbs * 12)  # 12 is the number of resource elements in a PRB
+        return self.cell.get_power_dBm - to_dB(max_rbs * 12)  # 12 is the number of resource elements in a PRB
 
     def power_tx_per_ue_dbm(self):
         """
@@ -261,12 +260,6 @@ class EarthModel:
         """
         self.ue_energy_totals[ue.i] += ue.reporting_interval * self.ue_a_kW
 
-    def f_callback(self, x, **kwargs):
-        # print(kwargs)
-        if isinstance(x, Cell):
-            self.get_cell_total_power()
-        elif isinstance(x, UE):
-            self.ue_energy(x)
 
 
 # END class EarthModel
@@ -306,9 +299,9 @@ class QmEnergyLogger(Logger):
                 n_ues = cell.get_nattached()    # attached UEs
                 tp = 0.0                        # total throughput set to ZERO
                 tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)    # Update throughput
-                pc = EarthModel.get_cell_total_power(cell.i)   # Power consumption for cell
+                pc = EarthModel(s.sim, cell).get_cell_total_power(cell)   # Power consumption for cell
                 # Calculate the energy efficiency
-                if tp == 0.0:
+                if pc == 0.0:
                     ee = 0.0  # KB think about types - should this be 0.0?
                 else:
                     ee = tp / pc
@@ -358,7 +351,7 @@ class QmEnergyLogger(Logger):
         f = open(filename, 'w')
         # x_formatted=f'{x:6g}'.ljust(7,'0') # 6 significant figures, left-justified and right-padded with zeros
         # f'{x_formatted}'
-        s.main_dataframe.style.format('{>0.2f}')
+        s.main_dataframe.style.format('{>0.2f}') # Need to install Jinja2
         s.main_dataframe.to_csv(f, sep='\t', index=False, encoding='ascii')
         # f.close()
         s.plot()
@@ -384,8 +377,7 @@ def test(seed=1, ncells=1, nues=1, plane_x_max=1000, plane_y_max=1000, until=100
     sim = Sim(rng_seed=seed)
     # Setup cells
     for i in range(ncells):
-        cell = sim.make_cell(interval=interval, verbosity=1)
-        cell.set_f_callback(EarthModel(sim, cell).get_cell_total_power(cell))
+        sim.make_cell(interval=interval, verbosity=1)
     # Setup UEs
     ue_ppp = ppp(sim=sim, n_ues=nues, x_max=plane_x_max, y_max=plane_y_max)
     plot_ppp(ppp_arr=ue_ppp, ax_x_max=plane_x_max, ax_y_max=plane_y_max)
