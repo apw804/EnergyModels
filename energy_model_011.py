@@ -3,6 +3,7 @@
 # Restructure of code with different working parts
 # Dataframe needs Jinja2. Install with pip or conda.
 
+import argparse
 import math
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,8 +13,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import argparse
-from AIMM_simulator import Cell, UE, Logger, Scenario, Sim, from_dB, Radio_state, to_dB
+from AIMM_simulator import Logger, Scenario, Sim, from_dB, Radio_state, to_dB
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from shapely.geometry import Polygon, box
 
@@ -216,7 +216,7 @@ class EarthModel:
 
     def power_bs_loss(self):
         return (1 - self.cell.params.loss_dc_db) * (1 - self.cell.params.loss_mains_db) * (
-                    1 - self.cell.params.loss_cool_db)
+                1 - self.cell.params.loss_cool_db)
 
     def power_bs_per_trx(self, p_out):
         return self.power_bs_sum_watts(p_out) / self.power_bs_loss()
@@ -261,7 +261,6 @@ class EarthModel:
         self.ue_energy_totals[ue.i] += ue.reporting_interval * self.ue_a_kW
 
 
-
 # END class EarthModel
 
 class QmEnergyLogger(Logger):
@@ -296,10 +295,10 @@ class QmEnergyLogger(Logger):
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
                 tm = s.sim.env.now  # timestamp
-                n_ues = cell.get_nattached()    # attached UEs
-                tp = 0.0                        # total throughput set to ZERO
-                tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)    # Update throughput
-                pc = EarthModel(s.sim, cell).get_cell_total_power(cell)   # Power consumption for cell
+                n_ues = cell.get_nattached()  # attached UEs
+                tp = 0.0  # total throughput set to ZERO
+                tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Update throughput
+                pc = EarthModel(s.sim, cell).get_cell_total_power(cell)  # Power consumption for cell
                 # Calculate the energy efficiency
                 if pc == 0.0:
                     ee = 0.0  # KB think about types - should this be 0.0?
@@ -320,7 +319,7 @@ class QmEnergyLogger(Logger):
 
         # Separate out into dataframes for each cell[i]
         df = s.main_dataframe
-        df_cell0 = df[df.cell.eq(0)]
+        df_cell0 =
         df_cell1 = df[df.cell.eq(1)]
         df_cell2 = df[df.cell.eq(2)]
 
@@ -351,7 +350,7 @@ class QmEnergyLogger(Logger):
         f = open(filename, 'w')
         # x_formatted=f'{x:6g}'.ljust(7,'0') # 6 significant figures, left-justified and right-padded with zeros
         # f'{x_formatted}'
-        s.main_dataframe.style.format('{>0.2f}') # Need to install Jinja2
+        s.main_dataframe.style.format('{>0.2f}')  # Need to install Jinja2
         s.main_dataframe.to_csv(f, sep='\t', index=False, encoding='ascii')
         # f.close()
         s.plot()
@@ -385,23 +384,23 @@ def test(seed=1, ncells=1, nues=1, plane_x_max=1000, plane_y_max=1000, until=100
         ue_xyz = np.append(xy, 2.0)
         ue_reporting_interval = 0.1 * interval  # UE intervals are scaled to a higher rate than the sim
         sim.make_UE(xyz=ue_xyz, reporting_interval=ue_reporting_interval).attach_to_nearest_cell()
-    
+
     # Add logger & scenario
-    sim.add_logger(QmEnergyLogger(sim, logging_interval=1 * interval))      # std_out & dataframe
-    scenario = QmScenario(sim, verbosity=1)                                 # Does nothing - UEs are stationary
+    sim.add_logger(QmEnergyLogger(sim, logging_interval=1 * interval))  # std_out & dataframe
+    scenario = QmScenario(sim, verbosity=1)  # Does nothing - UEs are stationary
     sim.add_scenario(scenario)  # FIXME interval?
     sim.run(until=until)
 
 
-
-if __name__=='__main__': # a simple self-test
-  np.set_printoptions(precision=6,linewidth=200)
-  parser=argparse.ArgumentParser()
-  parser.add_argument('-seed',type=int,default= 1,help='random number generator seed')
-  parser.add_argument('-ncells',type=int,default= 4,help='number of cells')
-  parser.add_argument('-nues',type=int,default=10,help='number of UEs')
-  parser.add_argument('-plane_x_max',type=int,default=1000,help='size of plane x-coords')
-  parser.add_argument('-plane_y_max',type=int,default=1000,help='size of plane y-coords')
-  parser.add_argument('-until',type=float,default=100.0,help='simulation time')
-  args=parser.parse_args()
-  test(seed=args.seed,ncells=args.ncells,nues=args.nues,plane_x_max=args.plane_x_max,plane_y_max=args.plane_y_max,until=args.until)
+if __name__ == '__main__':  # a simple self-test
+    np.set_printoptions(precision=6, linewidth=200)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-seed', type=int, default=1, help='random number generator seed')
+    parser.add_argument('-ncells', type=int, default=4, help='number of cells')
+    parser.add_argument('-nues', type=int, default=10, help='number of UEs')
+    parser.add_argument('-plane_x_max', type=int, default=1000, help='size of plane x-coords')
+    parser.add_argument('-plane_y_max', type=int, default=1000, help='size of plane y-coords')
+    parser.add_argument('-until', type=float, default=100.0, help='simulation time')
+    args = parser.parse_args()
+    test(seed=args.seed, ncells=args.ncells, nues=args.nues, plane_x_max=args.plane_x_max, plane_y_max=args.plane_y_max,
+         until=args.until)
