@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
+from matplotlib import pyplot as plt
 from shapely.geometry import box
 
 
@@ -137,6 +138,7 @@ class QmEnergyLogger(Logger):
             'Energy(J)',
             'EE',
         )
+        s.ec = np.zeros(s.sim.get_ncells())
         s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
 
     def append_row(s, new_row):
@@ -156,6 +158,7 @@ class QmEnergyLogger(Logger):
                 tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Update throughput
                 tp_bits = tp * 1e+6  # Convert throughput from Mbps>bps
                 ec = s.energy_model.cell_energy_now[cell.i]
+                s.ec += ec
                 if ec == 0.0:  # Calculate the energy efficiency
                     ee = 0.0
                 else:
@@ -198,12 +201,25 @@ def ppp(sim, n_ues, x_max, y_max, x_min=0, y_min=0):
     return np.stack((x, y), axis=1)
 
 
+def plot_ppp(ue_arr, ax_x_max, ax_y_max):
+    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], edgecolor='b', facecolor='none', alpha=0.5)
+    plt.xlim(0, ax_x_max)
+    plt.ylim(0, ax_y_max)
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.plot()
+    plt.show()
+
+
 def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
     sim = Sim(rng_seed=seed)
     sim_box = create_bbox(boxlength)
-    sim_box_xmax, sim_box_ymax = sim_box.bounds[2:]
+    sim_box_xmin, sim_box_ymin, sim_box_xmax, sim_box_ymax = sim_box.bounds
     for i in range(ncells):
-        sim.make_cell(verbosity=0)
+        cell_xyz = np.empty(3)
+        cell_xyz[:2] = sim_box_xmin + sim_box_xmax * sim.rng.random(2)
+        cell_xyz[2] = 20.0
+        sim.make_cell(verbosity=0, xyz=cell_xyz)
     ue_ppp = ppp(sim=sim, n_ues=nues, x_max=sim_box_xmax, y_max=sim_box_ymax)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
@@ -211,6 +227,7 @@ def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
     em = Energy(sim)
     for cell in sim.cells:
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
+        print(f'cell_xyz={cell.xyz}')
     print(f'sim.get_nues()={sim.get_nues()}')
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
@@ -218,6 +235,7 @@ def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
     sim.add_scenario(scenario)
     logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
     sim.add_logger(logger)  # std_out & dataframe
+    plot_ppp(ue_arr=ue_ppp, ax_x_max=sim_box_xmax, ax_y_max=sim_box_ymax)
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
