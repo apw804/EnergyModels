@@ -4,6 +4,7 @@
 # Added dataclasses for small cells and macro cells.
 # Added bounding box with shapely.geometry.
 # 2022-11-20 13:55 Add custom QmEnergyLogger
+# Add cell power_dBm level to logger
 
 
 import argparse
@@ -133,6 +134,7 @@ class QmEnergyLogger(Logger):
         s.cols = (
             'time',
             'cell',
+            'cell_dBm',
             'n_UEs',
             'tp_bps',
             'Energy(J)',
@@ -148,11 +150,12 @@ class QmEnergyLogger(Logger):
     def loop(s):
         # Write to stdout
         yield s.sim.wait(s.logging_interval)
-        s.f.write("#time\tcell\tn_ues\ttp_bps\tEnergy (J)\tEE (bits/J)\n")
+        s.f.write("#time\tcell\tcell_dBm\tn_ues\ttp_bps\tEnergy (J)\tEE (bits/J)\n")
         while True:
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
                 tm = s.sim.env.now  # timestamp
+                cell_dbm = cell.get_power_dBm()
                 n_ues = cell.get_nattached()  # attached UEs
                 tp = 0.0  # total throughput set to ZERO
                 tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Update throughput
@@ -165,10 +168,10 @@ class QmEnergyLogger(Logger):
                     ee = tp_bits / ec
                 # Write to stdout
                 s.f.write(
-                    f"{tm:10.2f}\t{cell.i:2}\t{n_ues:2}\t{tp_bits:10.2f}\t{ec:10.2f}\t{ee:10.2f}\n"
+                    f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:10.2f}\t{ec:10.2f}\t{ee:10.2f}\n"
                 )
                 # Write these variables to the main_dataframe
-                row = (tm, cell.i, n_ues, tp_bits, ec, ee)
+                row = (tm, cell.i, cell_dbm, n_ues, tp_bits, ec, ee)
                 new_row = [np.round(each_arr, decimals=2) for each_arr in row]
                 s.append_row(new_row)
 
@@ -202,7 +205,7 @@ def ppp(sim, n_ues, x_max, y_max, x_min=0, y_min=0):
 
 
 def plot_ppp(ue_arr, ax_x_max, ax_y_max):
-    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], edgecolor='b', facecolor='none', alpha=0.5)
+    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], marker='.', edgecolor='b', facecolor='none', alpha=0.5)
     plt.xlim(0, ax_x_max)
     plt.ylim(0, ax_y_max)
     plt.xlabel('x')
@@ -219,7 +222,7 @@ def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
         cell_xyz = np.empty(3)
         cell_xyz[:2] = sim_box_xmin + sim_box_xmax * sim.rng.random(2)
         cell_xyz[2] = 20.0
-        sim.make_cell(verbosity=0, xyz=cell_xyz)
+        sim.make_cell(interval=1.0, xyz=cell_xyz)
     ue_ppp = ppp(sim=sim, n_ues=nues, x_max=sim_box_xmax, y_max=sim_box_ymax)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
