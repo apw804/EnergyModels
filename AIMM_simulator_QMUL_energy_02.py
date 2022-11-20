@@ -58,7 +58,7 @@ class Energy:
         self.cell_a_kW = 1.0  # slope
         self.ue_a_kW = 1.0e-3  # slope
         self.cell_energy_totals = np.zeros(sim.get_ncells())
-        self.ue_power_totals = np.zeros(sim.get_nues())
+        self.ue_energy_totals = np.zeros(sim.get_nues())
 
     def cell_energy(self, cell):
         """
@@ -102,7 +102,7 @@ class Energy:
         """
           Increment UE energy usage for one simulation timestep.
         """
-        self.ue_power_totals[ue.i] += ue.reporting_interval * self.ue_a_kW
+        self.ue_energy_totals[ue.i] += ue.reporting_interval * self.ue_a_kW
 
     def f_callback(self, x, **kwargs):
         # print(kwargs)
@@ -141,8 +141,8 @@ def test_01(ncells=4, nues=10, until=100.0):
     scenario = Scenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     sim.run(until=until)
-    print(f'cell_energy_totals={em.cell_energy_totals}watts')
-    print(f'UE_power_totals  ={em.ue_power_totals}kW')
+    print(f'cell_energy_totals={em.cell_energy_totals}joules')
+    print(f'UE_energy_totals  ={em.ue_energy_totals}kW')
 
 
 if __name__ == '__main__':  # a simple self-test
