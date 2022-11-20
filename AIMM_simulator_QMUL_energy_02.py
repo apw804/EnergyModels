@@ -125,19 +125,30 @@ def create_bbox(length=1000.0):
     return box(minx=0.0, miny=0.0, maxx=length, maxy=length, ccw=False)
 
 
-def test_01(ncells=4, nues=10, until=100.0):
-    sim = Sim()
+def ppp(sim, n_ues, x_max, y_max, x_min=0, y_min=0):
+    n_points = sim.rng.poisson(n_ues)
+    x = (x_max * np.random.uniform(0, 1, n_points) + x_min)  # FIX: not a tuple
+    y = (y_max * np.random.uniform(0, 1, n_points) + y_min)  # FIX: not a tuple
+    return np.stack((x, y), axis=1)
+
+
+def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=100.0):
+    sim = Sim(rng_seed=seed)
+    sim_box = create_bbox(boxlength)
+    sim_box_xmax, sim_box_ymax = sim_box.bounds[2:]
     for i in range(ncells):
         sim.make_cell(verbosity=0)
-    for i in range(nues):
-        ue = sim.make_UE(verbosity=1)
-        ue.attach_to_nearest_cell()
+    ue_ppp = ppp(sim=sim, n_ues=nues, x_max=sim_box_xmax, y_max=sim_box_ymax)
+    for i, xy in enumerate(ue_ppp):
+        ue_xyz = np.append(xy, 2.0)
+        sim.make_UE(xyz=ue_xyz).attach_to_nearest_cell()
     em = Energy(sim)
     for cell in sim.cells:
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     print(f'sim.get_nues()={sim.get_nues()}')
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
+        print(f'UE_xyz  ={ue.xyz}metres')
     scenario = Scenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     sim.run(until=until)
@@ -148,8 +159,10 @@ def test_01(ncells=4, nues=10, until=100.0):
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
+    parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
+    parser.add_argument('-boxlength', type=float, default=25.0, help='simulation bounding box length in metres')
     parser.add_argument('-ncells', type=int, default=4, help='number of cells')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=1000.0, help='simulation time')
     args = parser.parse_args()
-    test_01(ncells=args.ncells, nues=args.nues, until=args.until)
+    test_01(seed=args.seed, boxlength=args.boxlength, ncells=args.ncells, nues=args.nues, until=args.until)
