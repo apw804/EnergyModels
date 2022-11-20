@@ -57,10 +57,10 @@ class Energy:
         self.cell_power_static = None  # baseline energy use
         self.cell_a_kW = 1.0  # slope
         self.ue_a_kW = 1.0e-3  # slope
-        self.cell_power_totals = np.zeros(sim.get_ncells())
+        self.cell_energy_totals = np.zeros(sim.get_ncells())
         self.ue_power_totals = np.zeros(sim.get_nues())
 
-    def cell_power(self, cell):
+    def cell_energy(self, cell):
         """
           Increment cell power consumption for one simulation timestep.
           Based on EARTH framework (10.1109/MWC.2011.6056691).
@@ -96,7 +96,7 @@ class Energy:
             if p < 0.0:
                 raise ValueError('Power cannot be below ZERO!')
 
-        self.cell_power_totals[cell.i] += cell.interval * (self.cell_power_static + n_trx * trx_power(p=trx_power_now))
+        self.cell_energy_totals[cell.i] += cell.interval * (self.cell_power_static + n_trx * trx_power(p=trx_power_now))
 
     def ue_power(self, ue):
         """
@@ -108,7 +108,7 @@ class Energy:
         # print(kwargs)
         if isinstance(x, Cell):
             # print(f't={self.sim.env.now:.1f}: cell[{x.i}] (check from kwargs: {kwargs["cell_i"]}) energy={self.cell_energy_totals[x.i]:.0f}kW')
-            self.cell_power(x)
+            self.cell_energy(x)
         elif isinstance(x, UE):
             self.ue_power(x)
 
@@ -141,8 +141,8 @@ def test_01(ncells=4, nues=10, until=100.0):
     scenario = Scenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     sim.run(until=until)
-    print(f'cell_energy_totals={em.cell_power_totals}watts')
-    print(f'UE_energy_totals  ={em.ue_power_totals}kW')
+    print(f'cell_energy_totals={em.cell_energy_totals}watts')
+    print(f'UE_power_totals  ={em.ue_power_totals}kW')
 
 
 if __name__ == '__main__':  # a simple self-test
