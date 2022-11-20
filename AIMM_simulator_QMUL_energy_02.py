@@ -142,7 +142,7 @@ def test_01(ncells=4, nues=10, until=100.0):
     sim.add_scenario(scenario)
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
-    print(f'UE_energy_totals  ={em.ue_energy_totals}kW')
+    print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
 
 
 if __name__ == '__main__':  # a simple self-test
