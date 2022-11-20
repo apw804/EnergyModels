@@ -15,7 +15,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
-from matplotlib import pyplot as plt
 from shapely.geometry import box
 
 
@@ -105,7 +104,6 @@ class Energy:
 
         s.cell_energy_now[cell.i] = cell.interval * (s.cell_power_static + n_trx * trx_power(p=trx_power_now))
         s.cell_energy_totals[cell.i] += cell.interval * (s.cell_power_static + n_trx * trx_power(p=trx_power_now))
-        print(f'Cell {cell.i} current energy = {s.cell_energy_now[cell.i]} joules')
 
     def ue_power(s, ue):
         """
@@ -128,8 +126,9 @@ class QmEnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, *args, **kwargs):
+    def __init__(s, energy_model, *args, **kwargs):
         Logger.__init__(s, *args, **kwargs)
+        s.energy_model: Energy = energy_model
         s.cols = (
             'time',
             'cell',
@@ -138,7 +137,7 @@ class QmEnergyLogger(Logger):
             'Energy(J)',
             'EE',
         )
-        s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))    # Create empty pd.DataFrame with headings
+        s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
 
     def append_row(s, new_row):
         temp_df = pd.DataFrame(data=[new_row], columns=list(s.cols))
@@ -151,13 +150,13 @@ class QmEnergyLogger(Logger):
         while True:
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
-                tm = s.sim.env.now                                                  # timestamp
-                n_ues = cell.get_nattached()                                        # attached UEs
-                tp = 0.0                                                            # total throughput set to ZERO
-                tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)    # Update throughput
-                tp_bits = tp * 1e+6                                                 # Convert throughput from Mbps>bps
-                ec = 16               # Random number while I figure out how to call the energy function
-                if ec == 0.0:                                                       # Calculate the energy efficiency
+                tm = s.sim.env.now  # timestamp
+                n_ues = cell.get_nattached()  # attached UEs
+                tp = 0.0  # total throughput set to ZERO
+                tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Update throughput
+                tp_bits = tp * 1e+6  # Convert throughput from Mbps>bps
+                ec = s.energy_model.cell_energy_now[cell.i]
+                if ec == 0.0:  # Calculate the energy efficiency
                     ee = 0.0
                 else:
                     ee = tp_bits / ec
@@ -208,17 +207,17 @@ def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
     ue_ppp = ppp(sim=sim, n_ues=nues, x_max=sim_box_xmax, y_max=sim_box_ymax)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
-        sim.make_UE(xyz=ue_xyz).attach_to_nearest_cell()
+        sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     print(f'sim.get_nues()={sim.get_nues()}')
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-        print(f'UE_xyz  ={ue.xyz}metres')
     scenario = Scenario(sim, verbosity=0)
     sim.add_scenario(scenario)
-    sim.add_logger(QmEnergyLogger(sim, logging_interval=1.0))  # std_out & dataframe
+    logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
+    sim.add_logger(logger)  # std_out & dataframe
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
@@ -231,6 +230,6 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-boxlength', type=float, default=25.0, help='simulation bounding box length in metres')
     parser.add_argument('-ncells', type=int, default=4, help='number of cells')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
-    parser.add_argument('-until', type=float, default=10.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=15.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, boxlength=args.boxlength, ncells=args.ncells, nues=args.nues, until=args.until)
