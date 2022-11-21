@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
 from pathlib import Path
+from time import strftime
 
 import numpy as np
 import pandas as pd
@@ -182,7 +183,7 @@ class QmEnergyLogger(Logger):
 
     def finalize(s):
         cwd = getcwd()
-        filename = str(Path(__file__).stem + '_log_' + str(datetime.now(tz=None)))
+        filename = str(Path(__file__).stem + '_log_' + strftime("%Y%m%d-%H%M%S"))
         s.main_dataframe.to_csv(filename, index=False)
 
 
@@ -298,15 +299,13 @@ def test_01(seed=0, boxlength=100.0, sidelength=150, ncells=1, nues=1, until=10.
     em = Energy(sim)
     for cell in sim.cells:
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
-        print(f'cell_xyz={cell.xyz}')
-    print(f'sim.get_nues()={sim.get_nues()}')
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
+    plot_ppp(ue_arr=ue_ppp, ax_x_max=sim_box_xmax, ax_y_max=sim_box_ymax)
     scenario = Scenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
     sim.add_logger(logger)  # std_out & dataframe
-    plot_ppp(ue_arr=ue_ppp, ax_x_max=sim_box_xmax, ax_y_max=sim_box_ymax)
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
