@@ -5,9 +5,11 @@
 # Added bounding box with shapely.geometry.
 # 2022-11-20 13:55 Add custom QmEnergyLogger
 # Add cell power_dBm level to logger
+# Add hexgrid functions!!!
 
 
 import argparse
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
@@ -17,6 +19,7 @@ import numpy as np
 import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 from matplotlib import pyplot as plt
+from scipy.spatial import voronoi_plot_2d, Voronoi
 from shapely.geometry import box
 
 
@@ -214,10 +217,75 @@ def plot_ppp(ue_arr, ax_x_max, ax_y_max):
     plt.show()
 
 
-def test_01(seed=0, boxlength=100.0, ncells=1, nues=1, until=10.0):
+def create_hexgrid(bbox, side):
+    """
+    Returns an array of Points describing hexagons centers that are inside the given bounding_box.
+    param bbox: The containing bounding box. The bbox coordinate should be in Webmercator
+    param side: The size of the hexagons
+    return: The hexagon grid
+    """
+    grid = []
+
+    v_step = math.sqrt(3) * side
+    h_step = 1.5 * side
+
+    x_min = min(bbox[0], bbox[2])
+    x_max = max(bbox[0], bbox[2])
+    y_min = min(bbox[1], bbox[3])
+    y_max = max(bbox[1], bbox[3])
+
+    h_skip = math.ceil(x_min / h_step) - 1
+    h_start = h_skip * h_step
+
+    v_skip = math.ceil(y_min / v_step) - 1
+    v_start = v_skip * v_step
+
+    h_end = x_max + h_step
+    v_end = y_max + v_step
+
+    if v_start - (v_step / 2.0) < y_min:
+        v_start_array = [v_start + (v_step / 2.0), v_start]
+    else:
+        v_start_array = [v_start - (v_step / 2.0), v_start]
+
+    v_start_idx = int(abs(h_skip) % 2)
+
+    c_x = h_start
+    c_y = v_start_array[v_start_idx]
+    v_start_idx = (v_start_idx + 1) % 2
+    while c_x < h_end:
+        while c_y < v_end:
+            grid.append((c_x, c_y))
+            c_y += v_step
+        c_x += h_step
+        c_y = v_start_array[v_start_idx]
+        v_start_idx = (v_start_idx + 1) % 2
+
+    return grid
+
+
+def make_hexgrid(bbox, xlim, ylim, side_length):
+    sim_bbox = bbox
+    sim_bbox_vertices = list(sim_bbox.bounds)
+    hex_grid = create_hexgrid(sim_bbox_vertices, side_length)
+    points = np.array(hex_grid)
+    vor = Voronoi(points=points)
+
+    # Plot the hex grid and axis view
+    fig, ax = plt.subplots()
+    voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='grey',
+                    line_width=0.6, line_alpha=0.2, point_size=0.5)
+    ax.set_aspect('equal')
+    ax.set_xlim(0, xlim)
+    ax.set_ylim(0, ylim)
+    return points, ax.plot()
+
+
+def test_01(seed=0, boxlength=100.0, sidelength=150, ncells=1, nues=1, until=10.0):
     sim = Sim(rng_seed=seed)
     sim_box = create_bbox(boxlength)
     sim_box_xmin, sim_box_ymin, sim_box_xmax, sim_box_ymax = sim_box.bounds
+    points, hex_plot = make_hexgrid(bbox=sim_box, xlim=sim_box_xmax, ylim=sim_box_ymax, side_length=sidelength)
     for i in range(ncells):
         cell_xyz = np.empty(3)
         cell_xyz[:2] = sim_box_xmin + sim_box_xmax * sim.rng.random(2)
@@ -248,7 +316,7 @@ if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-boxlength', type=float, default=25.0, help='simulation bounding box length in metres')
+    parser.add_argument('-boxlength', type=float, default=1000.0, help='simulation bounding box length in metres')
     parser.add_argument('-ncells', type=int, default=4, help='number of cells')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=15.0, help='simulation time')
