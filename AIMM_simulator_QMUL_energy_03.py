@@ -208,7 +208,7 @@ def ppp(sim, n_ues, x_max, y_max, x_min=0, y_min=0):
 
 
 def plot_ppp(ue_arr, ax_x_max, ax_y_max):
-    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], marker='.', edgecolor='b', facecolor='none', alpha=0.5)
+    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], marker='.', color='r')
     plt.xlim(0, ax_x_max)
     plt.ylim(0, ax_y_max)
     plt.xlabel('x')
@@ -274,7 +274,7 @@ def make_hexgrid(bbox, xlim, ylim, side_length):
     # Plot the hex grid and axis view
     fig, ax = plt.subplots()
     voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='grey',
-                    line_width=0.6, line_alpha=0.2, point_size=0.5)
+                    line_width=0.6, line_alpha=0.2, point_size=5)
     ax.set_aspect('equal')
     ax.set_xlim(0, xlim)
     ax.set_ylim(0, ylim)
