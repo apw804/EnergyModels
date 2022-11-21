@@ -6,6 +6,7 @@
 # 2022-11-20 13:55 Add custom QmEnergyLogger
 # Add cell power_dBm level to logger
 # Add hexgrid functions!!!
+# Add average spectral efficiency to logger
 
 
 import argparse
@@ -64,6 +65,7 @@ class Energy:
         s.sim = sim  # reference to the entire simulation!
         s.params_small_cell = SmallCellParameters()
         s.params_macro_cell = MacroCellParameters()
+        s.cell_sectors = None
         s.cell_power_static = None  # baseline energy use
         s.cell_a_kW = 1.0  # slope
         s.ue_a_kW = 1.0e-3  # slope
@@ -88,9 +90,9 @@ class Energy:
             cell_antennas = 3  # Assume 3*120 degree antennas
         else:
             cell_antennas = 1  # If an array or function, assume it is unidirectional (for now)
-        cell_sectors = 3  # Assuming 3 sectors. FIX when complex antennas implemented.
+        s.cell_sectors = cell_antennas  # Assuming 3 sectors. FIX when complex antennas implemented.
 
-        n_trx = cell.n_subbands * cell_antennas * cell_sectors  # Number of transceiver chains
+        n_trx = cell.n_subbands * cell_antennas * s.cell_sectors  # Number of transceiver chains
         trx_power_max = from_dB(trx.p_max_db)  # The maximum transmit power in watts
         trx_power_now = from_dB(cell.get_power_dBm())  # The current transmit power in watts
 
@@ -143,6 +145,7 @@ class QmEnergyLogger(Logger):
             'tp_bps',
             'Energy(J)',
             'EE',
+            'SE'
         )
         s.ec = np.zeros(s.sim.get_ncells())
         s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
@@ -154,7 +157,7 @@ class QmEnergyLogger(Logger):
     def loop(s):
         # Write to stdout
         yield s.sim.wait(s.logging_interval)
-        s.f.write("#time\tcell\tcell_dBm\tn_ues\ttp_bps\tEnergy (J)\tEE (bits/J)\n")
+        s.f.write("#time\tcell\tcell_dBm\tn_ues\ttp_bps\tEnergy (J)\tEE (bits/J)\tavg_SE(bit/s/Hz/TRxP)\n")
         while True:
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
@@ -168,14 +171,16 @@ class QmEnergyLogger(Logger):
                 s.ec += ec
                 if ec == 0.0:  # Calculate the energy efficiency
                     ee = 0.0
+                    avg_se = 0.0
                 else:
                     ee = tp_bits / ec
+                    avg_se = ec / s.logging_interval / (cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
                 # Write to stdout
                 s.f.write(
-                    f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:10.2f}\t{ec:10.2f}\t{ee:10.2f}\n"
+                    f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:.2e}\t{ec:.2e}\t{ee:10.2f}\t{avg_se:.2e}\n"
                 )
                 # Write these variables to the main_dataframe
-                row = (tm, cell.i, cell_dbm, n_ues, tp_bits, ec, ee)
+                row = (tm, cell.i, cell_dbm, n_ues, tp_bits, ec, ee, avg_se)
                 new_row = [np.round(each_arr, decimals=2) for each_arr in row]
                 s.append_row(new_row)
 
@@ -321,4 +326,5 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=15.0, help='simulation time')
     args = parser.parse_args()
-    test_01(seed=args.seed, boxlength=args.boxlength, sidelength=args.sidelength, ncells=args.ncells, nues=args.nues, until=args.until)
+    test_01(seed=args.seed, boxlength=args.boxlength, sidelength=args.sidelength, ncells=args.ncells, nues=args.nues,
+            until=args.until)
