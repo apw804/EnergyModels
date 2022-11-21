@@ -1,5 +1,4 @@
 ./venv
 ./.idea
 Icon*
-.DS_Store
 .nosync*
