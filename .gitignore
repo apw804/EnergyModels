@@ -2,3 +2,4 @@
 ./.idea
 Icon*
 .nosync*
+.DS_store
