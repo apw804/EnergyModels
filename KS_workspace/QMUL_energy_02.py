@@ -73,27 +73,30 @@ class Energy:
         s.cell_energy_totals = np.zeros(sim.get_ncells())
         s.ue_energy_now = np.zeros(sim.get_nues())
         s.ue_energy_totals = np.zeros(sim.get_nues())
+        s.trx = None
+        s.cell_antennas = 0
 
     def cell_energy(s, cell):
         """
           Increment cell power consumption for one simulation timestep.
           Based on EARTH framework (10.1109/MWC.2011.6056691).
         """
-        if cell.get_power_dBm() < 30:
-            trx = s.params_small_cell
-            s.cell_power_static = s.params_small_cell.power_static_watts
-        else:
-            trx = s.params_macro_cell
-            s.cell_power_static = s.params_macro_cell.power_static_watts
 
-        if cell.pattern is None:
-            cell_antennas = 3  # Assume 3*120 degree antennas
-        else:
-            cell_antennas = 1  # If an array or function, assume it is unidirectional (for now)
-        s.cell_sectors = cell_antennas  # Assuming 3 sectors. FIX when complex antennas implemented.
+        if s.sim.env.now <= 0:
+            if cell.get_power_dBm() < 30:
+                s.trx = s.params_small_cell
+                s.cell_power_static = s.params_small_cell.power_static_watts
+            else:
+                s.trx = s.params_macro_cell
+                s.cell_power_static = s.params_macro_cell.power_static_watts
+            if not isinstance(cell.pattern, list):
+                s.cell_antennas = 3  # Assume 3*120 degree antennas
+            else:
+                s.cell_antennas = 1  # If an array or function, assume it is unidirectional (for now)
+            s.cell_sectors = s.cell_antennas  # Assuming 3 sectors. FIX when complex antennas implemented.
 
-        n_trx = cell.n_subbands * cell_antennas * s.cell_sectors  # Number of transceiver chains
-        trx_power_max = from_dB(trx.p_max_db)  # The maximum transmit power in watts
+        n_trx = cell.n_subbands * s.cell_antennas * s.cell_sectors  # Number of transceiver chains
+        trx_power_max = from_dB(s.trx.p_max_db)  # The maximum transmit power in watts
         trx_power_now = from_dB(cell.get_power_dBm())  # The current transmit power in watts
 
         def trx_power(p):
@@ -101,9 +104,9 @@ class Energy:
             Calculates the power consumption for a given transmit power level (in watts), per transceiver.
             """
             if 0.0 <= p <= trx_power_max:
-                trx_power_pa = p / trx.eta_pa * (1 - from_dB(trx.loss_feed_db))  # Power amplifier in watts
-                trx_power_sum = trx_power_pa + trx.power_rf_watts + trx.power_baseband_watts
-                trx_power_losses = (1 - trx.loss_dc_db) * (1 - trx.loss_mains_db) * (1 - trx.loss_cool_db)
+                trx_power_pa = p / s.trx.eta_pa * (1 - from_dB(s.trx.loss_feed_db))  # Power amplifier in watts
+                trx_power_sum = trx_power_pa + s.trx.power_rf_watts + s.trx.power_baseband_watts
+                trx_power_losses = (1 - s.trx.loss_dc_db) * (1 - s.trx.loss_mains_db) * (1 - s.trx.loss_cool_db)
                 return trx_power_sum / trx_power_losses
             if p > trx_power_max:
                 raise ValueError('Power cannot exceed the maximum transceiver power!')
