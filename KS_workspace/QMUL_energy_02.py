@@ -7,6 +7,7 @@
 # Add cell power_dBm level to logger
 # Add hexgrid functions!!!
 # Add average spectral efficiency to logger
+# Add QmScenario class.
 
 
 import argparse
@@ -15,7 +16,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
 from pathlib import Path
-from time import strftime
 
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class SmallCellParameters:
 @dataclass(frozen=True)
 class MacroCellParameters:
     """ Object for setting macro cell base station parameters."""
-    p_max_db: float = 43.0
+    p_max_db: float = 49.0
     power_static_watts: float = 130.0
     eta_pa: float = 0.311
     power_rf_watts: float = 12.9
@@ -100,7 +100,7 @@ class Energy:
             """
             Calculates the power consumption for a given transmit power level (in watts), per transceiver.
             """
-            if 0.0 < p < trx_power_max:
+            if 0.0 <= p <= trx_power_max:
                 trx_power_pa = p / trx.eta_pa * (1 - from_dB(trx.loss_feed_db))  # Power amplifier in watts
                 trx_power_sum = trx_power_pa + trx.power_rf_watts + trx.power_baseband_watts
                 trx_power_losses = (1 - trx.loss_dc_db) * (1 - trx.loss_mains_db) * (1 - trx.loss_cool_db)
@@ -174,7 +174,8 @@ class QmEnergyLogger(Logger):
                     avg_se = 0.0
                 else:
                     ee = tp_bits / ec
-                    avg_se = ec / s.logging_interval / (cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
+                    avg_se = ec / s.logging_interval / (
+                                cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
                 # Write to stdout
                 s.f.write(
                     f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:.2e}\t{ec:.2e}\t{ee:10.2f}\t{avg_se:.2e}\n"
@@ -188,11 +189,23 @@ class QmEnergyLogger(Logger):
 
     def finalize(s):
         cwd = getcwd()
-        filename = str(Path(__file__).stem + '_log_' + strftime("%Y%m%d-%H%M%S"))
+        timestamp = datetime.now()
+        timestamp_iso = timestamp.isoformat()
+        filename = str(Path(__file__).stem + '_log_' + timestamp_iso)
         s.main_dataframe.to_csv(filename, index=False)
 
 
 # END class QmEnergyLogger
+
+class QmScenario(Scenario):
+
+    # This loop sets the amount of time between each event
+    def loop(s, interval=10.0):
+        while True:
+            yield s.sim.wait(interval)
+
+
+# END class QmScenario
 
 def create_bbox(length=1000.0):
     """
@@ -303,14 +316,15 @@ def test_01(seed=0, boxlength=100.0, sidelength=150, ncells=1, nues=1, until=10.
         sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
+        cell.set_power_dBm(49)
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
     plot_ppp(ue_arr=ue_ppp, ax_x_max=sim_box_xmax, ax_y_max=sim_box_ymax)
-    scenario = Scenario(sim, verbosity=0)
-    sim.add_scenario(scenario)
     logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
     sim.add_logger(logger)  # std_out & dataframe
+    scenario = QmScenario(sim, verbosity=0)
+    sim.add_scenario(scenario)
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
