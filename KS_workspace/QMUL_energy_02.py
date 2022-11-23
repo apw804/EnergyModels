@@ -18,12 +18,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
 from pathlib import Path
+from time import strftime, localtime
 
+import matplotlib.pyplot as plt
 import pandas as pd
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 from hexalattice.hexalattice import *
 from numpy import pi
 from shapely.geometry import box
+
+from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 
 
 @dataclass(frozen=True)
@@ -197,7 +200,7 @@ class QmEnergyLogger(Logger):
         logging_path = getcwd() + '/logfiles'
         today_folder = logging_path + '/' + str(datetime.date(datetime.now()))
         filename = str(Path(__file__).stem + '_log_' + timestamp_iso)
-        filepath = today_folder+'/'+filename
+        filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
             s.main_dataframe.to_csv(filepath, index=False)
         else:
@@ -292,7 +295,18 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     return hexgrid_xy, fig
 
 
-def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0):
+def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
+    # Keith Briggs 2020-01-07
+    # https://riptutorial.com/matplotlib/example/16030/coordinate-systems-and-text
+    date = strftime('%Y-%m-%d %H:%M', localtime())
+    fig.text(  # position text relative to Figure
+        0.01, 0.005, prespace + '%s %s' % (author, date,),
+        ha='left', va='bottom', fontsize=fontsize, color=color,
+        rotation=rotation,
+        transform=fig.transFigure, alpha=alpha)
+
+
+def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -315,6 +329,10 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0):
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], marker='.', s=10)
+    fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
+    # plt_filepath = QmEnergyLogger.finalize.
+    #    today_folder + '/' + filename
+    # plt.savefig()
     plt.show()
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
