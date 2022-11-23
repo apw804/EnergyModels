@@ -20,11 +20,10 @@ from os import getcwd
 from pathlib import Path
 
 import pandas as pd
+from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
+from hexalattice.hexalattice import *
 from numpy import pi
 from shapely.geometry import box
-from hexalattice.hexalattice import *
-
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 
 
 @dataclass(frozen=True)
@@ -180,7 +179,7 @@ class QmEnergyLogger(Logger):
                 else:
                     ee = tp_bits / ec
                     avg_se = ec / s.logging_interval / (
-                                cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
+                            cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
                 # Write to stdout
                 s.f.write(
                     f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:.2e}\t{ec:.2e}\t{ee:10.2f}\t{avg_se:.2e}\n"
@@ -212,7 +211,7 @@ class QmScenario(Scenario):
 
 # END class QmScenario
 
-def create_bbox(length=1000.0): # FIXME need to create a circular bound
+def create_bbox(length=1000.0):  # FIXME need to create a circular bound
     """
     Create a bounding box for the simulation.
     length: float
