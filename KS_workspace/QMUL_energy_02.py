@@ -9,20 +9,19 @@
 # Add average spectral efficiency to logger
 # Add QmScenario class.
 # Cleanup imports as per KB suggestions (2022-11-22)
+# Updated hexgrid function using hexalattice
 
 
 import argparse
-from math import sqrt, ceil
 from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-from scipy.spatial import voronoi_plot_2d, Voronoi
+from numpy import pi
 from shapely.geometry import box
+from hexalattice.hexalattice import *
 
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 
@@ -212,7 +211,7 @@ class QmScenario(Scenario):
 
 # END class QmScenario
 
-def create_bbox(length=1000.0):
+def create_bbox(length=1000.0): # FIXME need to create a circular bound
     """
     Create a bounding box for the simulation.
     length: float
@@ -224,98 +223,74 @@ def create_bbox(length=1000.0):
     return box(minx=0.0, miny=0.0, maxx=length, maxy=length, ccw=False)
 
 
-def ppp(sim, n_ues, x_max, y_max, x_min=0, y_min=0):
-    n_points = sim.rng.poisson(n_ues)
-    x = (x_max * np.random.uniform(0, 1, n_points) + x_min)  # FIX: not a tuple
-    y = (y_max * np.random.uniform(0, 1, n_points) + y_min)  # FIX: not a tuple
-    return np.stack((x, y), axis=1)
-
-
-def plot_ppp(ue_arr, ax_x_max, ax_y_max):
-    plt.scatter(x=ue_arr[:, 0], y=ue_arr[:, 1], marker='.', color='r')
-    plt.xlim(0, ax_x_max)
-    plt.ylim(0, ax_y_max)
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.plot()
-    plt.show()
-
-
-def create_hexgrid(bbox, side):
+def generate_ppp_points(n_pts=100, sim_radius=500.0):
     """
-    Returns an array of Points describing hexagons centers that are inside the given bounding_box.
-    param bbox: The containing bounding box. The bbox coordinate should be in Webmercator
-    param side: The size of the hexagons
-    return: The hexagon grid
+    Generates npts number of points, distributed according to a homogeneous PPP
+    with intensity lamb and returns an array of distances to the origin.
     """
-    grid = []
 
-    v_step = sqrt(3) * side
-    h_step = 1.5 * side
+    n = 0
+    xx = []
+    yy = []
+    while n < n_pts:
+        # Generate the radius value
+        radius_polar = sim_radius * np.sqrt(np.random.uniform(0, 1, 1))
 
-    x_min = min(bbox[0], bbox[2])
-    x_max = max(bbox[0], bbox[2])
-    y_min = min(bbox[1], bbox[3])
-    y_max = max(bbox[1], bbox[3])
+        # Generate theta value
+        theta = np.random.uniform(0, 2 * pi, 1)
 
-    h_skip = ceil(x_min / h_step) - 1
-    h_start = h_skip * h_step
+        # Convert to cartesian coords
+        x = radius_polar * np.cos(theta)
+        y = radius_polar * np.sin(theta)
 
-    v_skip = ceil(y_min / v_step) - 1
-    v_start = v_skip * v_step
+        # Add to the array
+        xx.append(float(x))
+        yy.append(float(y))
 
-    h_end = x_max + h_step
-    v_end = y_max + v_step
+        n = n + 1
 
-    if v_start - (v_step / 2.0) < y_min:
-        v_start_array = [v_start + (v_step / 2.0), v_start]
-    else:
-        v_start_array = [v_start - (v_step / 2.0), v_start]
-
-    v_start_idx = int(abs(h_skip) % 2)
-
-    c_x = h_start
-    c_y = v_start_array[v_start_idx]
-    v_start_idx = (v_start_idx + 1) % 2
-    while c_x < h_end:
-        while c_y < v_end:
-            grid.append((c_x, c_y))
-            c_y += v_step
-        c_x += h_step
-        c_y = v_start_array[v_start_idx]
-        v_start_idx = (v_start_idx + 1) % 2
-
-    return grid
+    if n == n_pts:
+        return np.array(list(zip(xx, yy)))
 
 
-def make_hexgrid(bbox, xlim, ylim, side_length):
-    sim_bbox = bbox
-    sim_bbox_vertices = list(sim_bbox.bounds)
-    hex_grid = create_hexgrid(sim_bbox_vertices, side_length)
-    points = np.array(hex_grid)
-    vor = Voronoi(points=points)
-
-    # Plot the hex grid and axis view
+def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
+    """
+    Creates a hex grid of 19 sites (57 sectors) using the hexalattice module when using the defaults.
+    Returns the
+    """
     fig, ax = plt.subplots()
-    voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='grey',
-                    line_width=0.6, line_alpha=0.2, point_size=5)
+
+    hexgrid_xy, _ = create_hex_grid(nx=5,
+                                    ny=5,
+                                    min_diam=isd,
+                                    crop_circ=sim_radius,
+                                    align_to_origin=True,
+                                    edge_color=[0.75, 0.75, 0.75],
+                                    h_ax=ax,
+                                    do_plot=True)
+
+    hexgrid_x = hexgrid_xy[:, 0]
+    hexgrid_y = hexgrid_xy[:, 1]
+    circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
+
+    ax.add_patch(circle_dashed)
+    ax.scatter(hexgrid_x, hexgrid_y, marker='2')
+    ax.set_xlim([-1300, 1300])
+    ax.set_ylim([-1300, 1300])
     ax.set_aspect('equal')
-    ax.set_xlim(0, xlim)
-    ax.set_ylim(0, ylim)
-    return points, ax.plot()
+    return hexgrid_xy, fig
 
 
-def test_01(seed=0, boxlength=100.0, sidelength=150, ncells=1, nues=1, until=10.0):
+
+def test_01(seed=0, nues=1, until=10.0):
     sim = Sim(rng_seed=seed)
-    sim_box = create_bbox(boxlength)
-    sim_box_xmin, sim_box_ymin, sim_box_xmax, sim_box_ymax = sim_box.bounds
-    points, hex_plot = make_hexgrid(bbox=sim_box, xlim=sim_box_xmax, ylim=sim_box_ymax, side_length=sidelength)
-    for i in range(ncells):
+    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup()
+    for centre in sim_hexgrid_centres[:]:
         cell_xyz = np.empty(3)
-        cell_xyz[:2] = sim_box_xmin + sim_box_xmax * sim.rng.random(2)
+        cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz)
-    ue_ppp = ppp(sim=sim, n_ues=nues, x_max=sim_box_xmax, y_max=sim_box_ymax)
+    ue_ppp = generate_ppp_points(n_pts=nues)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
         sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
@@ -325,11 +300,12 @@ def test_01(seed=0, boxlength=100.0, sidelength=150, ncells=1, nues=1, until=10.
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-    plot_ppp(ue_arr=ue_ppp, ax_x_max=sim_box_xmax, ax_y_max=sim_box_ymax)
     logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
+    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], marker='.')
+    plt.show()
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
@@ -339,11 +315,8 @@ if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-boxlength', type=float, default=1000.0, help='simulation bounding box length in metres')
-    parser.add_argument('-sidelength', type=float, default=150, help='hexagon side length in metres')
-    parser.add_argument('-ncells', type=int, default=4, help='number of cells')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=15.0, help='simulation time')
     args = parser.parse_args()
-    test_01(seed=args.seed, boxlength=args.boxlength, sidelength=args.sidelength, ncells=args.ncells, nues=args.nues,
+    test_01(seed=args.seed, nues=args.nues,
             until=args.until)
