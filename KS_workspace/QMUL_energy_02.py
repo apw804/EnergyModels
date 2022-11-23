@@ -10,7 +10,8 @@
 # Add QmScenario class.
 # Cleanup imports as per KB suggestions (2022-11-22)
 # Updated hexgrid function using hexalattice
-
+# Updated PPP function
+# Correction for random number generator used in PPP function, and attached to simulator rng
 
 import argparse
 from dataclasses import dataclass
@@ -223,7 +224,7 @@ def create_bbox(length=1000.0): # FIXME need to create a circular bound
     return box(minx=0.0, miny=0.0, maxx=length, maxy=length, ccw=False)
 
 
-def generate_ppp_points(n_pts=100, sim_radius=500.0):
+def generate_ppp_points(sim, n_pts=100, sim_radius=500.0):
     """
     Generates npts number of points, distributed according to a homogeneous PPP
     with intensity lamb and returns an array of distances to the origin.
@@ -234,10 +235,10 @@ def generate_ppp_points(n_pts=100, sim_radius=500.0):
     yy = []
     while n < n_pts:
         # Generate the radius value
-        radius_polar = sim_radius * np.sqrt(np.random.uniform(0, 1, 1))
+        radius_polar = sim_radius * np.sqrt(sim.rng.uniform(0, 1, 1))
 
         # Generate theta value
-        theta = np.random.uniform(0, 2 * pi, 1)
+        theta = sim.rng.uniform(0, 2 * pi, 1)
 
         # Convert to cartesian coords
         x = radius_polar * np.cos(theta)
@@ -289,7 +290,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0):
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz)
-    ue_ppp = generate_ppp_points(n_pts=nues, sim_radius=sim_radius)
+    ue_ppp = generate_ppp_points(sim=sim, n_pts=nues, sim_radius=sim_radius)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
         sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
