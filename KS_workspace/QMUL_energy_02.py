@@ -281,16 +281,15 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     return hexgrid_xy, fig
 
 
-
-def test_01(seed=0, nues=1, until=10.0):
+def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0):
     sim = Sim(rng_seed=seed)
-    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup()
+    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         cell_xyz = np.empty(3)
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz)
-    ue_ppp = generate_ppp_points(n_pts=nues)
+    ue_ppp = generate_ppp_points(n_pts=nues, sim_radius=sim_radius)
     for i, xy in enumerate(ue_ppp):
         ue_xyz = np.append(xy, 2.0)
         sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
@@ -304,7 +303,7 @@ def test_01(seed=0, nues=1, until=10.0):
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
-    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], marker='.')
+    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], marker='.', s=10)
     plt.show()
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
@@ -315,8 +314,10 @@ if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
+    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=15.0, help='simulation time')
     args = parser.parse_args()
-    test_01(seed=args.seed, nues=args.nues,
+    test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
             until=args.until)
