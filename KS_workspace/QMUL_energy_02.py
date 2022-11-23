@@ -192,11 +192,22 @@ class QmEnergyLogger(Logger):
             yield s.sim.wait(s.logging_interval)
 
     def finalize(s):
-        cwd = getcwd()
         timestamp = datetime.now()
         timestamp_iso = timestamp.isoformat()
+        logging_path = getcwd() + '/logfiles'
+        today_folder = logging_path + '/' + str(datetime.date(datetime.now()))
         filename = str(Path(__file__).stem + '_log_' + timestamp_iso)
-        s.main_dataframe.to_csv(filename, index=False)
+        filepath = today_folder+'/'+filename
+        if Path(today_folder).is_dir():
+            s.main_dataframe.to_csv(filepath, index=False)
+        else:
+            if Path(logging_path).is_dir():
+                Path.mkdir(Path(today_folder))
+                s.main_dataframe.to_csv(filepath, index=False)
+            else:
+                Path.mkdir(Path(logging_path))
+                Path.mkdir(Path(today_folder))
+                s.main_dataframe.to_csv(filepath, index=False)
 
 
 # END class QmEnergyLogger
