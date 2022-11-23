@@ -8,10 +8,11 @@
 # Add hexgrid functions!!!
 # Add average spectral efficiency to logger
 # Add QmScenario class.
+# Cleanup imports as per KB suggestions (2022-11-22)
 
 
 import argparse
-import math
+from math import sqrt, ceil
 from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
@@ -19,10 +20,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 from matplotlib import pyplot as plt
 from scipy.spatial import voronoi_plot_2d, Voronoi
 from shapely.geometry import box
+
+from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 
 
 @dataclass(frozen=True)
@@ -248,7 +250,7 @@ def create_hexgrid(bbox, side):
     """
     grid = []
 
-    v_step = math.sqrt(3) * side
+    v_step = sqrt(3) * side
     h_step = 1.5 * side
 
     x_min = min(bbox[0], bbox[2])
@@ -256,10 +258,10 @@ def create_hexgrid(bbox, side):
     y_min = min(bbox[1], bbox[3])
     y_max = max(bbox[1], bbox[3])
 
-    h_skip = math.ceil(x_min / h_step) - 1
+    h_skip = ceil(x_min / h_step) - 1
     h_start = h_skip * h_step
 
-    v_skip = math.ceil(y_min / v_step) - 1
+    v_skip = ceil(y_min / v_step) - 1
     v_start = v_skip * v_step
 
     h_end = x_max + h_step
