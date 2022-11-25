@@ -12,6 +12,8 @@
 # Updated hexgrid function using hexalattice
 # Updated PPP function
 # Correction for random number generator used in PPP function, and attached to simulator rng
+# Amended radius_polar equation from incorrect random.uniform to random.exponential
+# Added checks for PPP points that exceed the sim_radius when converted to cartesian coords.
 
 import argparse
 from dataclasses import dataclass
