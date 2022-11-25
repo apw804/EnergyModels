@@ -20,13 +20,11 @@ from os import getcwd
 from pathlib import Path
 from time import strftime, localtime
 
-import matplotlib.pyplot as plt
 import pandas as pd
+from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 from hexalattice.hexalattice import *
 from numpy import pi
 from shapely.geometry import box
-
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
 
 
 @dataclass(frozen=True)
@@ -246,9 +244,12 @@ def generate_ppp_points(sim, n_pts=100, sim_radius=500.0):
     n = 0
     xx = []
     yy = []
+    radius_lamb = 1 / sim_radius
+    radius_lamb_pi = pi * radius_lamb
+
     while n < n_pts:
         # Generate the radius value
-        radius_polar = sim_radius * np.sqrt(sim.rng.uniform(0, 1, 1))
+        radius_polar = np.sqrt(sim.rng.exponential(sim_radius, 1) / radius_lamb_pi)
 
         # Generate theta value
         theta = sim.rng.uniform(0, 2 * pi, 1)
@@ -257,11 +258,14 @@ def generate_ppp_points(sim, n_pts=100, sim_radius=500.0):
         x = radius_polar * np.cos(theta)
         y = radius_polar * np.sin(theta)
 
-        # Add to the array
-        xx.append(float(x))
-        yy.append(float(y))
+        if x > sim_radius or y > sim_radius:
+            n = n - 1
+        else:
+            # Add to the array
+            xx.append(float(x))
+            yy.append(float(y))
 
-        n = n + 1
+            n = n + 1
 
     if n == n_pts:
         return np.array(list(zip(xx, yy)))
@@ -328,8 +332,8 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
-    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], marker='.', s=10)
-    fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
+    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=20)
+    # fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
     # plt_filepath = QmEnergyLogger.finalize.
     #    today_folder + '/' + filename
     # plt.savefig()
