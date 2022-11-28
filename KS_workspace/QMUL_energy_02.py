@@ -20,10 +20,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from os import getcwd
 from pathlib import Path
+from sys import stdout
 from time import strftime, localtime
 
 import pandas as pd
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger
+from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str
 from hexalattice.hexalattice import *
 from numpy import pi
 from shapely.geometry import box
