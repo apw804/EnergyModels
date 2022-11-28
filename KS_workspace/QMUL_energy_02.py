@@ -59,6 +59,7 @@ class MacroCellParameters:
     loss_mains_db: float = 0.09
 
 
+# noinspection PyMethodParameters
 class Energy:
     """
     Defines a complete self-contained system energy model.
@@ -132,12 +133,14 @@ class Energy:
     def f_callback(s, x, **kwargs):
         # print(kwargs)
         if isinstance(x, Cell):
-            # print(f't={s.sim.env.now:.1f}: cell[{x.i}] (check from kwargs: {kwargs["cell_i"]}) energy={s.cell_energy_totals[x.i]:.0f}kW')
+            # print(f't={s.sim.env.now:.1f}: cell[{x.i}] (check from kwargs: {kwargs["cell_i"]})
+            # energy={s.cell_energy_totals[x.i]:.0f}kW')
             s.cell_energy(x)
         elif isinstance(x, UE):
             s.ue_power(x)
 
 
+# noinspection PyMethodParameters
 class QmEnergyLogger(Logger):
     """
     Custom Logger for energy modelling.
@@ -182,6 +185,7 @@ class QmEnergyLogger(Logger):
         temp_df = pd.DataFrame(data=[new_row], columns=list(s.cols))
         s.main_dataframe = pd.concat([s.main_dataframe, temp_df])
 
+    # noinspection PyPep8Naming
     def loop(s):
         # Write to stdout
         yield s.sim.wait(s.logging_interval)
@@ -256,6 +260,7 @@ class QmEnergyLogger(Logger):
 
 # END class QmEnergyLogger
 
+# noinspection PyMethodParameters
 class QmScenario(Scenario):
 
     # This loop sets the amount of time between each event
