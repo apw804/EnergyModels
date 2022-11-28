@@ -14,6 +14,7 @@
 # Correction for random number generator used in PPP function, and attached to simulator rng
 # Amended radius_polar equation from incorrect random.uniform to random.exponential
 # Added checks for PPP points that exceed the sim_radius when converted to cartesian coords.
+# Move to .tsv files for output of logger as easier to understand!
 
 import argparse
 from dataclasses import dataclass
