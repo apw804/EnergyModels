@@ -229,6 +229,10 @@ class QmEnergyLogger(Logger):
 
             yield s.sim.wait(s.logging_interval)
 
+    def write_df_to_tsv(s, filepath):
+        return s.main_dataframe.to_csv(filepath+'.tsv', index=False, sep='\t', na_rep='NaN', header=True,
+                                       float_format='%.2f')
+
     def finalize(s):
         timestamp = datetime.now()
         timestamp_iso = timestamp.isoformat()
