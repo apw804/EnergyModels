@@ -189,7 +189,6 @@ class QmEnergyLogger(Logger):
     def loop(s):
         # Write to stdout
         yield s.sim.wait(s.logging_interval)
-        s.f.write("#time\tcell\tcell_dBm\tn_ues\ttp_bps\tEnergy (J)\tEE (bits/J)\tavg_SE(bit/s/Hz/TRxP)\n")
         while True:
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
