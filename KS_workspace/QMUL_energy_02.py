@@ -174,6 +174,7 @@ class QmEnergyLogger(Logger):
         s.cell_ee_cum = 0.0
         s.cell_avg_se_overall = 0.0
         s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
+        super(QmEnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
 
     def append_row(s, new_row):
         temp_df = pd.DataFrame(data=[new_row], columns=list(s.cols))
