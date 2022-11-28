@@ -241,15 +241,15 @@ class QmEnergyLogger(Logger):
         filename = str(Path(__file__).stem + '_log_' + timestamp_iso)
         filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
-            s.main_dataframe.to_csv(filepath, index=False)
+            s.write_df_to_tsv(filepath)
         else:
             if Path(logging_path).is_dir():
                 Path.mkdir(Path(today_folder))
-                s.main_dataframe.to_csv(filepath, index=False)
+                s.write_df_to_tsv(filepath)
             else:
                 Path.mkdir(Path(logging_path))
                 Path.mkdir(Path(today_folder))
-                s.main_dataframe.to_csv(filepath, index=False)
+                s.write_df_to_tsv(filepath)
 
 
 # END class QmEnergyLogger
