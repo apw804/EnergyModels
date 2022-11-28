@@ -62,11 +62,17 @@ class MacroCellParameters:
 # noinspection PyMethodParameters
 class Energy:
     """
-    Defines a complete self-contained system energy model.
+    Defines a complete self-contained system energy model for a 5G base station (gNB).
+
+    Parameters
+    ----------
+    sim : Sim
+        Simulator instance which will manage this energy model.
     """
 
     def __init__(s, sim):
-        """ Initialize variables which will accumulate energy totals.
+        """
+        Initialize variables which will accumulate energy totals.
         """
 
         s.sim = sim  # reference to the entire simulation!
