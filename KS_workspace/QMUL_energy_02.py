@@ -376,7 +376,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
     plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=20)
-    # fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
+    fig_timestamp(fig=hexgrid_plot, author=author)
     # plt_filepath = QmEnergyLogger.finalize.
     #    today_folder + '/' + filename
     # plt.savefig()
