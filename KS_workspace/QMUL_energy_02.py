@@ -143,9 +143,10 @@ class QmEnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, energy_model, *args, **kwargs):
-        Logger.__init__(s, *args, **kwargs)
+    def __init__(s, sim, energy_model, until, func=None, header='', f=stdout, logging_interval=1.0):
+
         s.energy_model: Energy = energy_model
+        s.until: float = until
         s.cols = (
             'time',
             'cell_id',
@@ -370,7 +371,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-    logger = QmEnergyLogger(sim=sim, energy_model=em, logging_interval=1.0)
+    logger = QmEnergyLogger(sim=sim, energy_model=em, until=until)
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenario(sim, verbosity=0)
     sim.add_scenario(scenario)
