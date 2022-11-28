@@ -147,15 +147,32 @@ class QmEnergyLogger(Logger):
         s.energy_model: Energy = energy_model
         s.cols = (
             'time',
-            'cell',
+            'cell_id',
+            'cell_xyz',
+            'cell_bw_MHz',
+            'subbands',
+            'MIMO_gain',
+            'pattern',
             'cell_dBm',
             'n_UEs',
-            'tp_bps',
-            'Energy(J)',
-            'EE',
-            'SE'
+            'tp_agg_bits',
+            'tp_avg_bits',
+            'cell_ec_now',
+            'cell_ee_now',
+            'cell_avg_se_now',
+            'cell_tp_agg_bits_cum',
+            'cell_tp_avg_bits_cum',
+            'cell_ec_cum',
+            'cell_ee_cum',
+            'cell_avg_se_overall'
         )
-        s.ec = np.zeros(s.sim.get_ncells())
+
+        s.cell_ec_cum = 0.0
+        s.cell_ee = 0.0
+        s.cell_tp_agg_bits_cum = 0.0
+        s.cell_tp_avg_bits_cum = 0.0
+        s.cell_ee_cum = 0.0
+        s.cell_avg_se_overall = 0.0
         s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
 
     def append_row(s, new_row):
@@ -170,27 +187,43 @@ class QmEnergyLogger(Logger):
             # Needs to be per cell in the simulator
             for cell in s.sim.cells:
                 tm = s.sim.env.now  # timestamp
+                cell_id = cell.i
+                cell_xyz = cell.get_xyz()
+                bw_MHz = cell.bw_MHz
+                subbands = cell.n_subbands
+                # noinspection PyPep8Naming
+                MIMO_gain = cell.MIMO_gain_dB
+                pattern = cell.pattern
                 cell_dbm = cell.get_power_dBm()
                 n_ues = cell.get_nattached()  # attached UEs
-                tp = 0.0  # total throughput set to ZERO
-                tp = sum(cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Update throughput
-                tp_bits = tp * 1e+6  # Convert throughput from Mbps>bps
-                ec = s.energy_model.cell_energy_now[cell.i]
-                s.ec += ec
-                if ec == 0.0:  # Calculate the energy efficiency
-                    ee = 0.0
-                    avg_se = 0.0
+                tp_agg = sum(
+                    cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Aggregate throughput of all attached UEs
+                tp_agg_bits = tp_agg * 1e+6  # Convert throughput from Mbps>bps
+                tp_avg = cell.get_average_throughput()
+                tp_avg_bits = tp_avg * 1e+6  # to bits
+                cell_ec_now = s.energy_model.cell_energy_now[cell.i]
+                if s.sim.env.now > 0:
+                    s.cell_ec_cum += cell_ec_now
+                    s.cell_tp_agg_bits_cum += tp_agg_bits
+                    s.cell_tp_avg_bits_cum += tp_avg_bits
+
+                if cell_ec_now == 0.0:  # Calculate the energy efficiency
+                    cell_ee_now = 0.0
+                    cell_avg_se_now = 0.0
                 else:
-                    ee = tp_bits / ec
-                    avg_se = ec / s.logging_interval / (
-                            cell.bw_MHz * 1e6) / s.energy_model.cell_sectors  # Average spectral efficiency (bit/s/Hz/TRxP)
-                # Write to stdout
-                s.f.write(
-                    f"{tm:10.2f}\t{cell.i:2}\t{cell_dbm:2}\t{n_ues:2}\t{tp_bits:.2e}\t{ec:.2e}\t{ee:10.2f}\t{avg_se:.2e}\n"
-                )
+                    cell_ee_now = tp_agg_bits / cell_ec_now
+                    # Average spectral efficiency (bit/s/Hz/TRxP)
+                    cell_avg_se_now = tp_agg_bits / s.logging_interval / (
+                            cell.bw_MHz * 1e6) / s.energy_model.cell_sectors
+                    s.cell_ee_cum = s.cell_ee_cum + cell_ee_now
+                    s.cell_avg_se_overall = (s.cell_avg_se_overall + cell_avg_se_now) / s.sim.until
+
                 # Write these variables to the main_dataframe
-                row = (tm, cell.i, cell_dbm, n_ues, tp_bits, ec, ee, avg_se)
-                new_row = [np.round(each_arr, decimals=2) for each_arr in row]
+                row = (tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, pattern, cell_dbm, n_ues,
+                       tp_agg_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
+                       s.cell_tp_agg_bits_cum, s.cell_tp_avg_bits_cum, s.cell_ec_cum, s.cell_ee_cum,
+                       s.cell_avg_se_overall)
+                new_row = np.asarray(row, dtype=object)
                 s.append_row(new_row)
 
             yield s.sim.wait(s.logging_interval)
