@@ -244,7 +244,7 @@ class QmEnergyLogger(Logger):
         timestamp_iso = timestamp.isoformat()
         logging_path = getcwd() + '/logfiles'
         today_folder = logging_path + '/' + str(datetime.date(datetime.now()))
-        filename = str(Path(__file__).stem + '_log_' + timestamp_iso)
+        filename = str(Path(__file__).stem + '_QmCellLogger_log_' + timestamp_iso)
         filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
             s.write_df_to_tsv(filepath)
