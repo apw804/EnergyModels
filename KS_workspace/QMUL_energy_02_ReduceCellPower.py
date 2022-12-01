@@ -250,7 +250,7 @@ class QmEnergyLogger(Logger):
         timestamp_time = strftime('%H:%M:%S', localtime())
         logging_path = getcwd() + '/logfiles/' + str(Path(__file__).stem)
         today_folder = logging_path + '/' + str(timestamp_date)
-        filename = 'QmCellLogger_' + timestamp_time
+        filename = 'QmSimulationLog_' + timestamp_time
         filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
             s.write_df_to_tsv(filepath)
@@ -359,8 +359,9 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax.set_xlim([-1300, 1300])
-    ax.set_ylim([-1300, 1300])
+    ax_scaling = 3 * isd + 500      # Factor to set the x,y axis limits relative to the isd value.
+    ax.set_xlim([-ax_scaling, ax_scaling])
+    ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
     return hexgrid_xy, fig
 
@@ -376,7 +377,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kishan Sthankiya'):
+def test_01(seed=0, isd=2500.0, sim_radius=5000.0, nues=2000, until=10.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -398,7 +399,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenarioReduceCellPower(sim, verbosity=0)
     sim.add_scenario(scenario)
-    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=20)
+    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
     # plt_filepath = QmEnergyLogger.finalize.
     #    today_folder + '/' + filename
@@ -408,15 +409,23 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
 
+def ue_calculator(sim_radius):
+    """
+    The IMT-2020 requirements for a 5G network is a  minimum connection density of 1e6/km^2.
+    This function calculates the minimum UEs expected in the simulation.
+    """
+    sim_area = pi * sim_radius**2   # The result is in metres squared
+    sim_area_km = sim_area / 1000   # Convert to kilometres squared
+    return 1e6 * sim_area_km
 
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=10, help='number of UEs')
-    parser.add_argument('-until', type=float, default=15.0, help='simulation time')
+    parser.add_argument('-isd', type=float, default=2500.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-nues', type=int, default=2000, help='number of UEs')
+    parser.add_argument('-until', type=float, default=10.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
             until=args.until)
