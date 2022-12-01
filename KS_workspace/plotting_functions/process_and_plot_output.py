@@ -22,32 +22,49 @@ def process(logfile: Path = default_logfile):
     df = pd.read_csv(logfile, sep='\t')
 
     # sort the dataframe
-    df.sort_values(by=['cell_id', 'time'])
+    df =df.sort_values(by=['cell_id', 'time'])
 
     # set the index and don't drop
-    df.set_index(keys=['cell_id'], drop=False)
+    df = df.set_index(keys=['cell_id'], drop=False)
 
     # get a list of cells
     cells = df['cell_id'].unique().tolist()
 
-    # now we create a dataframe for each cell_id and assign to a unique global variable
+    # now we create a dataframe for each cell_id and assign to a unique dictionary key
+    df_cell_dict = {}
     for i in cells:
-        globals()[f'df_cell_{i}'] = df.loc[df['cell_id'] == i]
+        df_cell_dict['df_cell_' + str(i)] = df.loc[df['cell_id'] == i]
+
+    # now we define plotting
+    for df_cell in df_cell_dict.values():
+        if (df_cell.n_UEs > 0).any():
+
+            x = df_cell['cell_dBm'].sort_values(ascending=False)
+            y1 = df_cell['cell_ee_now']
+            # y2 = df_cell['cell_ee_now']
+            fig, ax = plt.subplots(figsize=(10,10))
+            ax.plot(x, y1, color='b', marker='o')
+            ax.set_title(f'Plot for Cell {df_cell.index[0]} showing \n base station EE at varying transmit power levels.')
+            ax.invert_xaxis()
+            ax.set_xlabel('cell power (dBm)')
+            ax.set_ylabel('cell energy efficiency (bits/s/Joule)', color='b', fontsize=14)
+
+            # ax2 = ax.twinx()
+            # ax2.scatter(x, y2, color='r', marker='o')
+            # ax2.set_ylabel('base station energy efficiency (bits/s/Joule)', color='r', fontsize=14)
+            plt.show()
 
 
-    def cell_subframe(dataset):
-        df_cell = []
-        for df in dataset:
-            pass
 
-    return print(globals())
+    print('wait pause')
 
+
+    return df_cell_dict
+
+a = process()
 
 '''
-    for each dataframe: # which is a different seed value
-        get the cell_id column
-        for each unique cell_id
-            split the dataframe into subframes
+
 
     for each subframe
         plot the cell_dBm (x-axis) vs
