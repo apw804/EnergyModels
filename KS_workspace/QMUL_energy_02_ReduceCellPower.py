@@ -246,11 +246,11 @@ class QmEnergyLogger(Logger):
                                        float_format='%g')
 
     def finalize(s):
-        timestamp = datetime.now()
-        timestamp_iso = timestamp.isoformat()
-        logging_path = getcwd() + '/logfiles'
-        today_folder = logging_path + '/' + str(datetime.date(datetime.now()))
-        filename = str(Path(__file__).stem + '_QmCellLogger_log_' + timestamp_iso)
+        timestamp_date = strftime('%Y-%m-%d', localtime())
+        timestamp_time = strftime('%H:%M:%S', localtime())
+        logging_path = getcwd() + '/logfiles/' + str(Path(__file__).stem)
+        today_folder = logging_path + '/' + str(timestamp_date)
+        filename = 'QmCellLogger_' + timestamp_time
         filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
             s.write_df_to_tsv(filepath)
