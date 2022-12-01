@@ -165,7 +165,6 @@ class QmEnergyLogger(Logger):
             'cell_bw_MHz',
             'subbands',
             'MIMO_gain',
-            'pattern',
             'cell_dBm',
             'n_UEs',
             'tp_agg_bits',
@@ -233,7 +232,7 @@ class QmEnergyLogger(Logger):
                     s.cell_avg_se_overall = (s.cell_avg_se_overall + cell_avg_se_now) / s.sim.until
 
                 # Write these variables to the main_dataframe
-                row = (s.seed, tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, pattern, cell_dbm, n_ues,
+                row = (s.seed, tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, cell_dbm, n_ues,
                        tp_agg_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
                        s.cell_tp_agg_bits_cum, s.cell_tp_avg_bits_cum, s.cell_ec_cum, s.cell_ee_cum,
                        s.cell_avg_se_overall)
