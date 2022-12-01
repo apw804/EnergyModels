@@ -152,11 +152,13 @@ class QmEnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, energy_model, until, func=None, header='', f=stdout, logging_interval=1.0):
+    def __init__(s, sim, seed, energy_model, until, func=None, header='', f=stdout, logging_interval=1.0):
 
         s.energy_model: Energy = energy_model
         s.until: float = until
+        s.seed: int = seed
         s.cols = (
+            'seed',
             'time',
             'cell_id',
             'cell_xyz',
@@ -231,7 +233,7 @@ class QmEnergyLogger(Logger):
                     s.cell_avg_se_overall = (s.cell_avg_se_overall + cell_avg_se_now) / s.sim.until
 
                 # Write these variables to the main_dataframe
-                row = (tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, pattern, cell_dbm, n_ues,
+                row = (s.seed, tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, pattern, cell_dbm, n_ues,
                        tp_agg_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
                        s.cell_tp_agg_bits_cum, s.cell_tp_avg_bits_cum, s.cell_ec_cum, s.cell_ee_cum,
                        s.cell_avg_se_overall)
@@ -393,7 +395,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000, nues=10, until=10.0, author='Kis
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-    logger = QmEnergyLogger(sim=sim, energy_model=em, until=until)
+    logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until)
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenarioReduceCellPower(sim, verbosity=0)
     sim.add_scenario(scenario)
