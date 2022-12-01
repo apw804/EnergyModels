@@ -1,6 +1,7 @@
 # 2022-11-28
 # Kishan Sthankiya
 # Script to produce plots from generated simulation files
+
 import argparse
 import os
 from os.path import join, isfile
@@ -11,11 +12,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-cwd = str(Path.cwd())
-test_folder = cwd + '/logfiles'
-default_logfile = next(join(test_folder, f) for f in os.listdir(test_folder) if isfile(join(test_folder, f)))
 
-print(default_logfile)
+cwd = str(Path.cwd())
+timestamp_date = strftime('%Y-%m-%d', localtime())
+timestamp_time = strftime('%H:%M:%S', localtime())
+default_folder = cwd + '/logfiles/' + timestamp_date
+default_logfile = next(join(default_folder, f) for f in os.listdir(default_folder) if isfile(join(default_folder, f)))
+default_outfile_path = default_folder + '/plots/' #FIXME actually use this!
+
 
 def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
     # Keith Briggs 2020-01-07
@@ -27,12 +31,13 @@ def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alph
         rotation=rotation,
         transform=fig.transFigure, alpha=alpha)
 
+
 def process(logfile: Path = default_logfile):
     # read the tsv logfile
     df = pd.read_csv(logfile, sep='\t')
 
     # sort the dataframe
-    df =df.sort_values(by=['cell_id', 'time'])
+    df = df.sort_values(by=['cell_id', 'time'])
 
     # set the index and don't drop
     df = df.set_index(keys=['cell_id'], drop=False)
@@ -48,17 +53,16 @@ def process(logfile: Path = default_logfile):
     # now we define plotting
     for df_cell in df_cell_dict.values():
         if (df_cell.n_UEs > 0).any():
-
             x = df_cell['cell_dBm'].sort_values(ascending=False)
             y1 = df_cell['cell_ee_now']
             # y2 = df_cell['cell_ee_now']
-            fig, ax = plt.subplots(figsize=(10,10))
+            fig, ax = plt.subplots(figsize=(10, 10))
             ax.plot(x, y1, color='b', marker='o')
-            ax.set_title(f'Plot for Cell {df_cell.index[0]} showing \n base station EE at varying transmit power levels.')
+            ax.set_title(
+                f'Plot for Cell {df_cell.index[0]} showing \n base station EE at varying transmit power levels.')
             ax.invert_xaxis()
             ax.set_xlabel('cell power (dBm)')
             ax.set_ylabel('cell energy efficiency (bits/s/Joule)', color='b', fontsize=14)
-
 
             # ax2 = ax.twinx()
             # ax2.scatter(x, y2, color='r', marker='o')
@@ -68,12 +72,10 @@ def process(logfile: Path = default_logfile):
             plt.savefig()
             # plt.show()
 
-
-
     print('wait pause')
 
-
     return df_cell_dict
+
 
 a = process()
 
