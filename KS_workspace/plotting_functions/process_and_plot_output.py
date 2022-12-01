@@ -4,6 +4,7 @@
 import argparse
 import os
 from os.path import join, isfile
+from time import strftime, localtime
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -11,11 +12,20 @@ import numpy as np
 from pathlib import Path
 
 cwd = str(Path.cwd())
-test_folder = cwd + '/test'
+test_folder = cwd + '/logfiles'
 default_logfile = next(join(test_folder, f) for f in os.listdir(test_folder) if isfile(join(test_folder, f)))
 
 print(default_logfile)
 
+def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
+    # Keith Briggs 2020-01-07
+    # https://riptutorial.com/matplotlib/example/16030/coordinate-systems-and-text
+    date = strftime('%Y-%m-%d %H:%M', localtime())
+    fig.text(  # position text relative to Figure
+        0.01, 0.005, prespace + '%s %s' % (author, date,),
+        ha='left', va='bottom', fontsize=fontsize, color=color,
+        rotation=rotation,
+        transform=fig.transFigure, alpha=alpha)
 
 def process(logfile: Path = default_logfile):
     # read the tsv logfile
@@ -49,10 +59,14 @@ def process(logfile: Path = default_logfile):
             ax.set_xlabel('cell power (dBm)')
             ax.set_ylabel('cell energy efficiency (bits/s/Joule)', color='b', fontsize=14)
 
+
             # ax2 = ax.twinx()
             # ax2.scatter(x, y2, color='r', marker='o')
             # ax2.set_ylabel('base station energy efficiency (bits/s/Joule)', color='r', fontsize=14)
-            plt.show()
+            fig_timestamp(fig)
+            outfile_name = str(strftime('%Y-%m-%d %H:%M', localtime())) + f'_Cell{df_cell.index[0]}'
+            plt.savefig()
+            # plt.show()
 
 
 
