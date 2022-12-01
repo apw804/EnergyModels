@@ -243,7 +243,7 @@ class QmEnergyLogger(Logger):
 
     def write_df_to_tsv(s, filepath):
         return s.main_dataframe.to_csv(filepath+'.tsv', index=False, sep='\t', na_rep='NaN', header=True,
-                                       float_format='%.2f')
+                                       float_format='%g')
 
     def finalize(s):
         timestamp = datetime.now()
