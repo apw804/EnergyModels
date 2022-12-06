@@ -18,7 +18,6 @@
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime
 from os import getcwd
 from pathlib import Path
 from sys import stdout
@@ -27,7 +26,7 @@ from time import strftime, localtime
 import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str
 from hexalattice.hexalattice import *
-from numpy import pi
+import numpy as np
 from shapely.geometry import box
 
 
@@ -242,7 +241,7 @@ class QmEnergyLogger(Logger):
             yield s.sim.wait(s.logging_interval)
 
     def write_df_to_tsv(s, filepath):
-        return s.main_dataframe.to_csv(filepath+'.tsv', index=False, sep='\t', na_rep='NaN', header=True,
+        return s.main_dataframe.to_csv(filepath + '.tsv', index=False, sep='\t', na_rep='NaN', header=True,
                                        float_format='%g')
 
     def finalize(s):
@@ -301,40 +300,35 @@ def create_bbox(length=1000.0):  # FIXME need to create a circular bound
     return box(minx=0.0, miny=0.0, maxx=length, maxy=length, ccw=False)
 
 
-def generate_ppp_points(sim, n_pts=100, sim_radius=500.0):
+def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
     """
-    Generates npts number of points, distributed according to a homogeneous PPP
+    Generates npts points, distributed according to a homogeneous PPP
     with intensity lamb and returns an array of distances to the origin.
     """
+    sim_rng = sim.rng
 
-    n = 0
-    xx = []
-    yy = []
-    radius_lamb = 1 / sim_radius
-    radius_lamb_pi = pi * radius_lamb
+    # Simulation window parameters
+    sim_radius = sim_radius  # radius of disk
+    xx0 = 0
+    yy0 = 0  # centre of disk
+    areaTotal = np.pi * sim_radius ** 2  # area of disk
 
-    while n < n_pts:
-        # Generate the radius value
-        radius_polar = np.sqrt(sim.rng.exponential(sim_radius, 1) / radius_lamb_pi)
+    # Point process parameters
+    lambda0 = expected_pts / areaTotal  # intensity (ie mean density) of the Poisson process
 
-        # Generate theta value
-        theta = sim.rng.uniform(0, 2 * pi, 1)
+    # Simulate Poisson point process
+    numbPoints = sim_rng.poisson(lambda0 * areaTotal)  # Poisson number of points
+    theta = 2 * np.pi * sim_rng.uniform(0, 1, numbPoints)  # angular coordinates
+    rho = sim_radius * np.sqrt(sim_rng.uniform(0, 1, numbPoints))  # radial coordinates
 
-        # Convert to cartesian coords
-        x = radius_polar * np.cos(theta)
-        y = radius_polar * np.sin(theta)
+    # Convert from polar to Cartesian coordinates
+    xx = rho * np.cos(theta)
+    yy = rho * np.sin(theta)
 
-        if x > sim_radius or y > sim_radius:
-            n = n - 1
-        else:
-            # Add to the array
-            xx.append(float(x))
-            yy.append(float(y))
-
-            n = n + 1
-
-    if n == n_pts:
-        return np.array(list(zip(xx, yy)))
+    # Shift centre of disk to (xx0,yy0)
+    xx = xx + xx0
+    yy = yy + yy0
+    return np.column_stack((xx, yy))
 
 
 def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
@@ -359,7 +353,7 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax_scaling = 3 * isd + 500      # Factor to set the x,y axis limits relative to the isd value.
+    ax_scaling = 3 * isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
     ax.set_xlim([-ax_scaling, ax_scaling])
     ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
@@ -377,7 +371,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, isd=2500.0, sim_radius=5000.0, nues=2000, until=10.0, author='Kishan Sthankiya'):
+def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -385,9 +379,10 @@ def test_01(seed=0, isd=2500.0, sim_radius=5000.0, nues=2000, until=10.0, author
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz)
-    ue_ppp = generate_ppp_points(sim=sim, n_pts=nues, sim_radius=sim_radius)
-    for i, xy in enumerate(ue_ppp):
-        ue_xyz = np.append(xy, 2.0)
+    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
+    for i in ue_ppp:
+        x, y = i
+        ue_xyz = x, y, 2.0
         sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
@@ -409,22 +404,14 @@ def test_01(seed=0, isd=2500.0, sim_radius=5000.0, nues=2000, until=10.0, author
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
 
-def ue_calculator(sim_radius):
-    """
-    The IMT-2020 requirements for a 5G network is a  minimum connection density of 1e6/km^2.
-    This function calculates the minimum UEs expected in the simulation.
-    """
-    sim_area = pi * sim_radius**2   # The result is in metres squared
-    sim_area_km = sim_area / 1000   # Convert to kilometres squared
-    return 1e6 * sim_area_km
 
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-isd', type=float, default=2500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=2000, help='number of UEs')
+    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-nues', type=int, default=1000, help='number of UEs')
     parser.add_argument('-until', type=float, default=10.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
