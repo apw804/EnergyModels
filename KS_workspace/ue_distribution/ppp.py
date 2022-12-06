@@ -15,7 +15,7 @@ def ppp(nues, x_max, y_max, x_min=0, y_min=0):
     y = (y_max*np.random.uniform(0, 1,n_points)+y_min)
     return np.stack((x, y), axis=1)
 
-n_ues = 50
+n_ues = 1e3
 t_x_max = 1000
 t_y_max = 1000
 a = ppp(n_ues,t_x_max,t_y_max)
