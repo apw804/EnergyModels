@@ -12,13 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-
 cwd = str(Path.cwd())
 timestamp_date = strftime('%Y-%m-%d', localtime())
 timestamp_time = strftime('%H:%M:%S', localtime())
-default_folder = cwd + '/logfiles/' + timestamp_date
-default_logfile = next(join(default_folder, f) for f in os.listdir(default_folder) if isfile(join(default_folder, f)))
-default_outfile_path = default_folder + '/plots/' #FIXME actually use this!
 
 
 def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
@@ -32,7 +28,14 @@ def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alph
         transform=fig.transFigure, alpha=alpha)
 
 
-def process(logfile: Path = default_logfile):
+def process(logfile: Path):
+    if logfile is None:
+        default_folder = cwd + '/logfiles/' + timestamp_date
+        default_logfile = next(
+            join(default_folder, f) for f in os.listdir(default_folder) if isfile(join(default_folder, f)))
+        default_outfile_path = default_folder + '/plots/'  # FIXME actually use this!
+        logfile = default_logfile
+
     # read the tsv logfile
     df = pd.read_csv(logfile, sep='\t')
 
@@ -69,15 +72,13 @@ def process(logfile: Path = default_logfile):
             # ax2.set_ylabel('base station energy efficiency (bits/s/Joule)', color='r', fontsize=14)
             fig_timestamp(fig)
             outfile_name = str(strftime('%Y-%m-%d %H:%M', localtime())) + f'_Cell{df_cell.index[0]}'
-            plt.savefig()
+            plt.savefig(str(logfile) + '_plot.png')
             # plt.show()
 
     print('wait pause')
 
     return df_cell_dict
 
-
-a = process()
 
 '''
 
@@ -92,7 +93,7 @@ a = process()
 if __name__ == '__main__':
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-logfile', type=Path, default=default_logfile, help='full path of logfile')
+    parser.add_argument('-logfile', type=Path, default=None, help='full path of logfile')
     # parser.add_argument('-output', type=Path, default=Path('./test/plots'), help='directory path to write plots to')
     args = parser.parse_args()
     process(logfile=args.logfile)

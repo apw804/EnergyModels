@@ -265,7 +265,7 @@ class QmEnergyLogger(Logger):
 
 # END class QmEnergyLogger
 
-class QmScenarioReduceCellPower(Scenario):
+class QmScenario00(Scenario):
 
     def delta_cell_power(s, cell, p_target: float = 0.0):
         """
@@ -282,7 +282,7 @@ class QmScenarioReduceCellPower(Scenario):
     def loop(s):
         while True:
             for cell in s.sim.cells:
-                s.delta_cell_power(cell, 0.0)
+                s.delta_cell_power(cell, 30.0)
             yield s.sim.wait(s.interval)
 
 
@@ -371,7 +371,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='Kishan Sthankiya'):
+def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=1, until=10.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -392,7 +392,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
     logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until)
     sim.add_logger(logger)  # std_out & dataframe
-    scenario = QmScenarioReduceCellPower(sim, verbosity=0)
+    scenario = QmScenario00(sim, verbosity=0)
     sim.add_scenario(scenario)
     plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
@@ -411,7 +411,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
     parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=1000, help='number of UEs')
+    parser.add_argument('-nues', type=int, default=1, help='number of UEs')
     parser.add_argument('-until', type=float, default=10.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
