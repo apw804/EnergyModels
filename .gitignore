@@ -1,6 +1,6 @@
 ./venv
 ./.idea
-./KS_workspace/logfiles
+./KS_workspace/logfiles/*
 Icon*
 .nosync*
 .DS_store
