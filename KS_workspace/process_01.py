@@ -64,7 +64,7 @@ def process(logfile: Path):
             ax.plot(x, y1, color='r', marker='o')
             ax.set_title(
                 f'Plot for Cell {df_cell.index[0]} showing \n base station SE & EE at varying transmit power levels.')
-            ax.invert_xaxis()
+            # ax.invert_xaxis()
             ax.set_xlabel('cell power (dBm)')
             ax.set_ylabel('base station spectral efficiency (bps/Hz)', color='r', fontsize=14)
 
@@ -73,7 +73,7 @@ def process(logfile: Path):
             ax2.set_ylabel('base station energy efficiency (bps/Joule)', color='b', fontsize=14)
             fig_timestamp(fig)
             outfile_name = str(strftime('%Y-%m-%d %H:%M', localtime())) + f'_Cell{df_cell.index[0]}'
-            plt.savefig(str(logfile) + f'_cell_{df_cell.index[0]}_plot.png')
+            plt.savefig(str(logfile) + f'_cell_{df_cell.index[0]}_plot' + timestamp_time + '.png')
             # plt.show()
 
     print('wait pause')

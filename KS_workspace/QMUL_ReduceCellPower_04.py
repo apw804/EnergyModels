@@ -16,6 +16,7 @@
 # Added checks for PPP points that exceed the sim_radius when converted to cartesian coords.
 # Move to .tsv files for output of logger as easier to understand!
 # Ensure a single cell and single UE.
+# Single UE reporting interval is scaled to 1/1000 of the `until` time
 
 import argparse
 from dataclasses import dataclass
@@ -359,7 +360,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='Kishan Sthankiya'):
+def test_01(seed=0, isd=5000.0, sim_radius=2500.0, nues=1, until=50.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -369,10 +370,10 @@ def test_01(seed=0, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='
         sim.make_cell(interval=1.0, xyz=cell_xyz)
     #    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
     ue_xyz = 2000.0, 0.0, 2.0
-    sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
+    sim.make_UE(xyz=ue_xyz, reporting_interval=until*1e-3).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
-        cell.set_power_dBm(43)
+        cell.set_power_dBm(40)
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
@@ -398,7 +399,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-isd', type=float, default=5000.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
     parser.add_argument('-nues', type=int, default=1, help='number of UEs')
-    parser.add_argument('-until', type=float, default=100.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=10.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
             until=args.until)

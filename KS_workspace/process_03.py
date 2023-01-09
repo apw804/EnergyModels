@@ -1,7 +1,7 @@
 # 2022-11-28
 # Kishan Sthankiya
 # Script to produce plots from generated simulation files
-# 1 base station, 1 UE. Plot Spectral and energy efficiency
+# 1 base station, 1 UE. Plot transmit_power, UE throughput vs time
 
 import argparse
 import os
@@ -29,9 +29,9 @@ def fig_timestamp(fig, author='Kishan Sthankiya', fontsize=6, color='gray', alph
         transform=fig.transFigure, alpha=alpha)
 
 
-def process(logfile: Path):
+def process(logfile: Path, scenario: str = 'QMUL_ReduceCellPower_05'):
     if logfile is None:
-        default_folder = cwd + '/logfiles/' + timestamp_date
+        default_folder = cwd + f'/logfiles/{scenario}/' + timestamp_date
         default_logfile = next(
             join(default_folder, f) for f in os.listdir(default_folder) if isfile(join(default_folder, f)))
         default_outfile_path = default_folder + '/plots/'  # FIXME actually use this!
@@ -57,20 +57,22 @@ def process(logfile: Path):
     # now we define plotting
     for df_cell in df_cell_dict.values():
         if (df_cell.n_UEs > 0).any():
-            x = df_cell['cell_dBm'].sort_values(ascending=False)
-            y1 = df_cell['cell_avg_se_overall']
-            y2 = df_cell['cell_ee_now']
+            df_cell_i_subbands = df_cell['subbands'].values[0]
+            x = df_cell['time'].sort_values(ascending=True)
+            y1 = df_cell['cell_dBm']
+            y2 = df_cell['tp_bits']
             fig, ax = plt.subplots(figsize=(10, 10))
             ax.plot(x, y1, color='r', marker='o')
             ax.set_title(
-                f'Plot for Cell {df_cell.index[0]} showing \n base station SE & EE at varying transmit power levels.')
-            # ax.invert_xaxis()
-            ax.set_xlabel('cell power (dBm)')
-            ax.set_ylabel('base station spectral efficiency (bps/Hz)', color='r', fontsize=14)
+                f'Plot for Cell {df_cell.index[0]} showing \n base station (n_subbands={df_cell_i_subbands}) Tx power '
+                f'& UE throughput over time.')
+
+            ax.set_xlabel('time (s)')
+            ax.set_ylabel('base station Tx power (dBm)', color='r', fontsize=14)
 
             ax2 = ax.twinx()
-            ax2.plot(x, y2, color='b', marker='o')
-            ax2.set_ylabel('base station energy efficiency (bps/Joule)', color='b', fontsize=14)
+            ax2.plot(x, y2, color='g', marker='o', alpha=0.6)
+            ax2.set_ylabel('UE throughput (bps)', color='g', fontsize=14)
             fig_timestamp(fig)
             outfile_name = str(strftime('%Y-%m-%d %H:%M', localtime())) + f'_Cell{df_cell.index[0]}'
             plt.savefig(str(logfile) + f'_cell_{df_cell.index[0]}_plot' + timestamp_time + '.png')
@@ -94,7 +96,8 @@ def process(logfile: Path):
 if __name__ == '__main__':
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-logfile', type=Path, default=None, help='full path of logfile')
+    parser.add_argument('-logfile', type=Path, default='/Users/apw804/Development/Energy_models-0.1/KS_workspace/logfiles/QMUL_ReduceCellPower_05/2022-12-16/QmSimulationLog_11:34:17.tsv', help='full path of logfile')
+    parser.add_argument('-scenario', type=str, default='QMUL_ReduceCellPower_05', help='name of simulation scenario')
     # parser.add_argument('-output', type=Path, default=Path('./test/plots'), help='directory path to write plots to')
     args = parser.parse_args()
-    process(logfile=args.logfile)
+    process(logfile=args.logfile, scenario=args.scenario)

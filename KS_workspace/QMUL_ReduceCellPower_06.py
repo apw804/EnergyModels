@@ -18,6 +18,8 @@
 # Ensure a single cell and single UE.
 # Single UE reporting interval is scaled to 1/1000 of the `until` time
 # Increase the number of subbands to 12
+# Subbands decreased to 1
+# Function to output a file of the input params added
 
 
 import argparse
@@ -155,7 +157,7 @@ class QmEnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, energy_model, until, func=None, header='', f=stdout, logging_interval=1.0):
+    def __init__(s, sim, seed, energy_model, until, sim_args=None, func=None, header='', f=stdout, logging_interval=1.0):
 
         s.energy_model: Energy = energy_model
         s.until: float = until
@@ -190,6 +192,7 @@ class QmEnergyLogger(Logger):
         s.cell_avg_se_overall = 0.0
         s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
         super(QmEnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        s.sim_args = sim_args
 
     def append_row(s, new_row):
         temp_df = pd.DataFrame(data=[new_row], columns=list(s.cols))
@@ -247,6 +250,17 @@ class QmEnergyLogger(Logger):
         return s.main_dataframe.to_csv(filepath + '.tsv', index=False, sep='\t', na_rep='NaN', header=True,
                                        float_format='%g')
 
+    def write_sim_args_file(s, filepath, sim_args):
+        output_path = filepath + '_sim_params.txt'
+        replacement = 'python 3 -m ' + str(Path(__file__).resolve()) + ' '
+        args_rtrim = sim_args.rstrip(sim_args[-1])
+        args_lrtrim = args_rtrim.split('(')[1].split(',')
+        args_str = [i.replace(' ', '-') for i in args_lrtrim]
+        output_str = ' '.join(args_str)
+        output_str_full = replacement + '-' + output_str
+        with open(output_path, 'w') as f:
+            f.write(output_str_full)
+
     def finalize(s):
         timestamp_date = strftime('%Y-%m-%d', localtime())
         timestamp_time = strftime('%H:%M:%S', localtime())
@@ -256,14 +270,17 @@ class QmEnergyLogger(Logger):
         filepath = today_folder + '/' + filename
         if Path(today_folder).is_dir():
             s.write_df_to_tsv(filepath)
+            s.write_sim_args_file(filepath, sim_args=s.sim_args)
         else:
             if Path(logging_path).is_dir():
                 Path.mkdir(Path(today_folder))
                 s.write_df_to_tsv(filepath)
+                s.write_sim_args_file(filepath, sim_args=s.sim_args)
             else:
                 Path.mkdir(Path(logging_path))
                 Path.mkdir(Path(today_folder))
                 s.write_df_to_tsv(filepath)
+                s.write_sim_args_file(filepath, sim_args=s.sim_args)
 
 
 # END class QmEnergyLogger
@@ -362,7 +379,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='Kishan Sthankiya'):
+def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='Kishan Sthankiya', sim_args=None):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -379,7 +396,7 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-    logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until)
+    logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until, sim_args=sim_args)
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenarioReduceCellPower(sim, verbosity=0)
     sim.add_scenario(scenario)
@@ -391,6 +408,7 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
+
 
 
 if __name__ == '__main__':  # a simple self-test
@@ -405,4 +423,4 @@ if __name__ == '__main__':  # a simple self-test
 
     args = parser.parse_args()
     test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
-            until=args.until)
+            until=args.until, sim_args=str(args))

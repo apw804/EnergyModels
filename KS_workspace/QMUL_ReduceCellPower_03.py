@@ -15,7 +15,7 @@
 # Amended radius_polar equation from incorrect random.uniform to random.exponential
 # Added checks for PPP points that exceed the sim_radius when converted to cartesian coords.
 # Move to .tsv files for output of logger as easier to understand!
-# Ensure a single cell and single UE.
+# Ensure a single cell and NO UE.
 
 import argparse
 from dataclasses import dataclass
@@ -397,7 +397,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
     parser.add_argument('-isd', type=float, default=5000.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=1, help='number of UEs')
+    parser.add_argument('-nues', type=int, default=0, help='number of UEs')
     parser.add_argument('-until', type=float, default=100.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,

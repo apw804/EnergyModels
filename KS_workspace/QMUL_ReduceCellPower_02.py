@@ -15,6 +15,7 @@
 # Amended radius_polar equation from incorrect random.uniform to random.exponential
 # Added checks for PPP points that exceed the sim_radius when converted to cartesian coords.
 # Move to .tsv files for output of logger as easier to understand!
+# Ensure a single cell and single UE.
 
 import argparse
 from dataclasses import dataclass
@@ -27,7 +28,7 @@ import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str
 from hexalattice.hexalattice import *
 import numpy as np
-from shapely.geometry import box
+
 
 
 @dataclass(frozen=True)
@@ -166,7 +167,7 @@ class QmEnergyLogger(Logger):
             'MIMO_gain',
             'cell_dBm',
             'n_UEs',
-            'tp_agg_bits',
+            'tp_bits',
             'tp_avg_bits',
             'cell_ec_now',
             'cell_ee_now',
@@ -208,31 +209,30 @@ class QmEnergyLogger(Logger):
                 pattern = cell.pattern
                 cell_dbm = cell.get_power_dBm()
                 n_ues = cell.get_nattached()  # attached UEs
-                tp_agg = sum(
-                    cell.get_UE_throughput(ue_i) for ue_i in cell.attached)  # Aggregate throughput of all attached UEs
-                tp_agg_bits = tp_agg * 1e+6  # Convert throughput from Mbps>bps
+                tp = cell.get_average_throughput()  # there is only one UE so avg should also work
+                tp_bits = tp * 1e+6  # Convert throughput from Mbps>bps
                 tp_avg = cell.get_average_throughput()
                 tp_avg_bits = tp_avg * 1e+6  # to bits
                 cell_ec_now = s.energy_model.cell_energy_now[cell.i]
                 if s.sim.env.now > 0:
                     s.cell_ec_cum += cell_ec_now
-                    s.cell_tp_agg_bits_cum += tp_agg_bits
+                    s.cell_tp_agg_bits_cum += tp_bits
                     s.cell_tp_avg_bits_cum += tp_avg_bits
 
                 if cell_ec_now == 0.0:  # Calculate the energy efficiency
                     cell_ee_now = 0.0
                     cell_avg_se_now = 0.0
                 else:
-                    cell_ee_now = tp_agg_bits / cell_ec_now
+                    cell_ee_now = tp_bits / cell_ec_now
                     # Average spectral efficiency (bit/s/Hz/TRxP)
-                    cell_avg_se_now = tp_agg_bits / s.logging_interval / (
+                    cell_avg_se_now = tp_bits / s.logging_interval / (
                             cell.bw_MHz * 1e6) / s.energy_model.cell_sectors
                     s.cell_ee_cum = s.cell_ee_cum + cell_ee_now
                     s.cell_avg_se_overall = (s.cell_avg_se_overall + cell_avg_se_now) / s.sim.until
 
                 # Write these variables to the main_dataframe
                 row = (s.seed, tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, cell_dbm, n_ues,
-                       tp_agg_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
+                       tp_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
                        s.cell_tp_agg_bits_cum, s.cell_tp_avg_bits_cum, s.cell_ec_cum, s.cell_ee_cum,
                        s.cell_avg_se_overall)
                 new_row = np.asarray(row, dtype=object)
@@ -282,22 +282,11 @@ class QmScenarioReduceCellPower(Scenario):
     def loop(s):
         while True:
             for cell in s.sim.cells:
-                s.delta_cell_power(cell, 30.0)
+                s.delta_cell_power(cell)
             yield s.sim.wait(s.interval)
 
 
 # END class QmScenarioReduceCellPower
-
-def create_bbox(length=1000.0):  # FIXME need to create a circular bound
-    """
-    Create a bounding box for the simulation.
-    length: float
-        Scalar value of the bounding box in metres. Default is 1000.0.
-    return: shapely.geometry.polygon.Polygon
-        Rectangular polygon with configurable normal vector
-    """
-    length = float(length)
-    return box(minx=0.0, miny=0.0, maxx=length, maxy=length, ccw=False)
 
 
 def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
@@ -333,15 +322,14 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
 
 def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
     """
-    Creates a hex grid of 19 sites (57 sectors) using the hexalattice module when using the defaults.
-    Returns the
+    Creates a hex grid of 1 site (3 sectors) using the hexalattice module when using the defaults.
     """
     fig, ax = plt.subplots()
 
-    hexgrid_xy, _ = create_hex_grid(nx=5,
-                                    ny=5,
+    hexgrid_xy, _ = create_hex_grid(nx=1,
+                                    ny=1,
                                     min_diam=isd,
-                                    crop_circ=sim_radius,
+                                    # crop_circ=sim_radius,
                                     align_to_origin=True,
                                     edge_color=[0.75, 0.75, 0.75],
                                     h_ax=ax,
@@ -349,11 +337,11 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
+    # circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
 
-    ax.add_patch(circle_dashed)
+    # ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax_scaling = 3 * isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
+    ax_scaling = isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
     ax.set_xlim([-ax_scaling, ax_scaling])
     ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
@@ -371,7 +359,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='Kishan Sthankiya'):
+def test_01(seed=0, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='Kishan Sthankiya'):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -379,14 +367,12 @@ def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz)
-    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
-    for i in ue_ppp:
-        x, y = i
-        ue_xyz = x, y, 2.0
-        sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
+    #    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
+    ue_xyz = 2000.0, 0.0, 2.0
+    sim.make_UE(xyz=ue_xyz).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
-        cell.set_power_dBm(49)
+        cell.set_power_dBm(43)
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
@@ -394,7 +380,7 @@ def test_01(seed=0, isd=500.0, sim_radius=1000.0, nues=200, until=10.0, author='
     sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenarioReduceCellPower(sim, verbosity=0)
     sim.add_scenario(scenario)
-    plt.scatter(x=ue_ppp[:, 0], y=ue_ppp[:, 1], s=1.0)
+    plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
     # plt_filepath = QmEnergyLogger.finalize.
     #    today_folder + '/' + filename
@@ -409,10 +395,10 @@ if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
     parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=1000, help='number of UEs')
-    parser.add_argument('-until', type=float, default=10.0, help='simulation time')
+    parser.add_argument('-isd', type=float, default=5000.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-nues', type=int, default=1, help='number of UEs')
+    parser.add_argument('-until', type=float, default=100.0, help='simulation time')
     args = parser.parse_args()
     test_01(seed=args.seed, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
             until=args.until)

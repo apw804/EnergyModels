@@ -1,0 +1,1 @@
+Namespace(isd=5000.0, nues=1, seed=0, sim_radius=5000.0, subbands=1, until=100.0)

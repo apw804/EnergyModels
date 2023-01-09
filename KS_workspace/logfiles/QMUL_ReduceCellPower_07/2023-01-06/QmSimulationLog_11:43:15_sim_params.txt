@@ -1,0 +1,1 @@
+python 3 -m /Users/apw804/Development/Energy_models-0.1/KS_workspace/QMUL_ReduceCellPower_07.py -isd=500.0 -nues=10 -seed=0 -sim_radius=1000.0 -subbands=1 -until=13.0
