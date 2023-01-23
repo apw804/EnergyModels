@@ -27,8 +27,9 @@
 # Adding a UE logger.
 # Fixed the 'until' problem. Credit to Richard who pointed out the @SmallCellParameters capitalisation issue.
 # v10 - now re-enables the number of UEs as a command line argument.
-# v10.1 - 1) Removed the QmScenarioReduceCellPower class; 2) Fixed EnergyLog output to include time t=0.
-# FIXME: need
+# v10.1 - 1) Removed the QmScenarioReduceCellPower class; 2) Fixed EnergyLog output to include time t=0;
+# 3) fixed list comprehensions for the EnergyLogger
+# FIXME - energy cons values do not vary with cell load and do not look right
 
 
 import argparse
@@ -73,7 +74,7 @@ class SmallCellParameters:
 class MacroCellParameters:
     """ Object for setting macro cell base station parameters."""
     p_max_db: float = 49.0
-    power_static_watts: float = 324.0  # 10.1109/LCOMM.2013.091213.131042
+    power_static_watts: float = 75.0
     eta_pa: float = 0.311
     power_rf_watts: float = 12.9
     power_baseband_watts: float = 29.6
@@ -136,39 +137,32 @@ class CellEnergyModel:
             s.cell_power_kW = s.cell_antennas * s.cell_power_static_kW  # Instantaneous independent power in kilowatts
         else:
             s.cell_power_kW = s.cell_power_static_kW + s.update_cell_power()
-        s.cell_power_kW_Hx = np.array(s.cell_power_kW)  # History of cell power levels
+        s.cell_power_kW_Hx = np.array(s.cell_power_kW)  # FIXME - History of cell power levels
 
     def update_cell_power(s):
         """
-        Takes the input (s.cell.power_dBm) of the transmission power for the cell (in dB).
         Returns the power consumption (in watts), per transceiver.
         """
 
-        # Number of resource blocks per frame
-        frame_RBs = s.cell.rbs.count()
-
-        # Read in the radio state and get the number of PRBs and sub-carriers per RB
-        # Frame = 10 milliseconds
-        # Sub-frame = 1 milliseconds
+        # Frame = 10 milliseconds. Sub-frame = 1 milliseconds
         # Bandwidth of 1 sub-carrier = 30kHz
         # 1 Resource block (PRB) = 12 sub-carriers = 12 * 30 kHz = 360 kHz
-        nPRB = NR_5G_standard_functions.radio_state.nPRB
-        nRB_sc = NR_5G_standard_functions.radio_state.NRB_sc
+        nRB_sc = NR_5G_standard_functions.Radio_state.NRB_sc
         sc_bw_kHz = 30.0  # sub-carrier bandwidth
         # Convert the cell bandwidth to kHz and find the max RBs this channel can support respecting the SCS for the
         # radio state numerology
         number_RBs_possible = s.cell.bw_MHz * 1000 // ((nRB_sc * sc_bw_kHz) + sc_bw_kHz)
-        channel_tx_bandwidth_bw_kHz = number_RBs_possible * nRB_sc * sc_bw_kHz
-        channel_tx_bandwidth_bw_MHz = channel_tx_bandwidth_bw_kHz / 1000
+        channel_tx_bandwidth_kHz = number_RBs_possible * nRB_sc * sc_bw_kHz
+        channel_tx_bandwidth_MHz = channel_tx_bandwidth_kHz / 1000
 
         # Get the constant value for baseband power from s.params.power_baseband_watts.
         # Calculate baseband power cons. in watts.
         power_baseband_watts = s.cell_antennas * (
-                channel_tx_bandwidth_bw_MHz / s.cell.bw_MHz) * s.params.power_baseband_watts
+                channel_tx_bandwidth_MHz / s.cell.bw_MHz) * s.params.power_baseband_watts
 
         # Get the constant value for RF power from s.params.power_rf_watts.
         # Calculate RF power cons. in watts.
-        power_rf_watts = s.cell_antennas * (channel_tx_bandwidth_bw_MHz / s.cell.bw_MHz) * s.params.power_rf_watts
+        power_rf_watts = s.cell_antennas * (channel_tx_bandwidth_MHz / s.cell.bw_MHz) * s.params.power_rf_watts
 
         if s.cell.power_dBm <= s.params.p_max_db:
             # Get the PA efficiency for the given power level
@@ -195,6 +189,9 @@ class CellEnergyModel:
 
         if s.cell.power_dBm > s.params.p_max_db:
             raise ValueError('Power cannot exceed the maximum transceiver power!')
+
+    def get_cell_power_kW(s):
+        return s.cell_power_kW
 
     def f_callback(s, x, **kwargs):
         # print(kwargs)
@@ -402,7 +399,8 @@ class EnergyLogger(Logger):
         super(EnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
 
     def get_energy_data(s):
-        def get_pdsch_throughput(cell):
+
+        def get_pdsch_throughput_Mbps(cell):
             """ Gets the sum total of downlink throughput for a given cell."""
 
             # Fetch the cell throughput_Mbps reports
@@ -420,16 +418,29 @@ class EnergyLogger(Logger):
 
             return pdsch_tp_Mbps
 
-        def get_cell_power_kW(cell):
-            # FIXME
-            # Map the cell to the CellEnergyModel object
-            cell_em_obj = test_01.cell_energy_models_dict[cell.i]
-            """Gets the instantaneous cell power in kW."""
-            if cell.sim.env.now == 0.:
-                .cell_power_kW = s.cell_antennas * s.cell_power_static_kW  # Instantaneous independent power in kilowatts
-            else:
-                s.cell_power_kW = s.update_cell_power()
-            return s.cell_power_kW
+        def get_power_kW(cell: Cell):
+            """Get the energy model object for this cell"""
+
+            # Get the CellEnergyModel object from the dictionary for this cell
+            cell_em = s.cell_energy_models[cell.i]
+
+            return cell_em.get_cell_power_kW()
+
+        def get_cell_ee(cell: Cell):
+            """ Get the cell Energy Efficiency (bits/second/watt)"""
+
+            # Convert the throughput to bits/s
+            pdsch_tp_bps = get_pdsch_throughput_Mbps(cell) * 1.e6
+
+            # Convert power consumption to watts
+            cell_power_cons_W = get_power_kW(cell) * 1.e3
+
+            return pdsch_tp_bps / cell_power_cons_W
+
+        def get_cell_se(cell: Cell):
+            """ Get the cell Spectral Efficiency (bits/second/Hertz)"""
+
+            return get_pdsch_throughput_Mbps(cell) / cell.bw_MHz * 1.e6
 
         # Create a dictionary of the variables we are interested in
         data = {
@@ -437,11 +448,10 @@ class EnergyLogger(Logger):
             "cell_id": [k.i for k in s.sim.cells],
             "cell_tx_power_dBm": [k.power_dBm for k in s.sim.cells],
             "cell_nattached_ues": [k.get_nattached() for k in s.sim.cells],
-            "pdsch_throughput_Mbps": [get_pdsch_throughput(k) for k in s.sim.cells],
-            "cell_power_cons_kW": [k for k in s.sim.cells],
-            # FIXME: list comprehensions probably not correct
-            # "cell_EE_bps/W": [],  # FIXME list comprehensions probably not correct
-            # "cell_SE_bps/Hz": []  # FIXME - This need calculating on the fly or adding into the Energy class
+            "pdsch_throughput_Mbps": [get_pdsch_throughput_Mbps(k) for k in s.sim.cells],
+            "cell_power_cons_kW": [get_power_kW(k) for k in s.sim.cells],
+            "cell_EE_bps/W": [get_cell_ee(k) for k in s.sim.cells],
+            "cell_SE_bps/Hz": [get_cell_se(k) for k in s.sim.cells]
         }
         return data
 
@@ -560,7 +570,7 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     for cell in sim.cells:
         # FIXME
         cell_energy_models_dict[cell.i] = (CellEnergyModel(cell))
-        cell.set_f_callback(cell_energy_models_dict[cell.i].get_cell_power_kW())
+        cell.set_f_callback(cell_energy_models_dict[cell.i].update_cell_power())
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
     for i in ue_ppp:
         x, y = i
