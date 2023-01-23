@@ -20,21 +20,22 @@
 # Increase the number of subbands to 12
 # Subbands decreased to 1
 # Function to output a file of the input params added
-# Changed values to 19 cells, 100 UEs, 43 dBm starting power, 30 dBm target power, 13 seconds duration
+# Updated log file location and name
 
 
 import argparse
+import json
 from dataclasses import dataclass
 from os import getcwd
 from pathlib import Path
 from sys import stdout
 from time import strftime, localtime
+from typing import Literal, get_args
 
 import pandas as pd
 from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str
 from hexalattice.hexalattice import *
 import numpy as np
-
 
 
 @dataclass(frozen=True)
@@ -158,7 +159,8 @@ class QmEnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, energy_model, until, sim_args=None, func=None, header='', f=stdout, logging_interval=1.0):
+    def __init__(s, sim, seed, energy_model, until, sim_args=None, func=None, header='', f=stdout,
+                 logging_interval=1.0):
 
         s.energy_model: Energy = energy_model
         s.until: float = until
@@ -191,14 +193,13 @@ class QmEnergyLogger(Logger):
         s.cell_tp_avg_bits_cum = 0.0
         s.cell_ee_cum = 0.0
         s.cell_avg_se_overall = 0.0
-        s.cell_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
-        s.ue_dataframe = pd.DataFrame(data=None, columns=['seed', 'ue_id', 'ue_attached_cell_id', 'ue_tp'])
+        s.main_dataframe = pd.DataFrame(data=None, columns=list(s.cols))  # Create empty pd.DataFrame with headings
         super(QmEnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
 
     def append_row(s, new_row):
         temp_df = pd.DataFrame(data=[new_row], columns=list(s.cols))
-        s.cell_dataframe = pd.concat([s.cell_dataframe, temp_df])
+        s.main_dataframe = pd.concat([s.main_dataframe, temp_df])
 
     # noinspection PyPep8Naming
     def loop(s):
@@ -238,7 +239,7 @@ class QmEnergyLogger(Logger):
                     s.cell_ee_cum = s.cell_ee_cum + cell_ee_now
                     s.cell_avg_se_overall = (s.cell_avg_se_overall + cell_avg_se_now) / s.sim.until
 
-                # Write these variables to the cell_dataframe
+                # Write these variables to the main_dataframe
                 row = (s.seed, tm, cell_id, cell_xyz, bw_MHz, subbands, MIMO_gain, cell_dbm, n_ues,
                        tp_bits, tp_avg_bits, cell_ec_now, cell_ee_now, cell_avg_se_now,
                        s.cell_tp_agg_bits_cum, s.cell_tp_avg_bits_cum, s.cell_ec_cum, s.cell_ee_cum,
@@ -248,13 +249,9 @@ class QmEnergyLogger(Logger):
 
             yield s.sim.wait(s.logging_interval)
 
-    def write_df_to_tsv(s, filepath):
-        return s.cell_dataframe.to_csv(filepath + '.tsv', index=False, sep='\t', na_rep='NaN', header=True,
-                                       float_format='%g')
-
     def write_sim_args_file(s, filepath, sim_args):
-        output_path = filepath + '_sim_params.txt'
-        replacement = 'python 3 -m ' + str(Path(__file__).resolve()) + ' '
+        output_path = filepath + '_sim_params.txt'  # dont need
+        replacement = 'python 3 -m ' + str(Path(__file__).resolve()) + ' '  # don't need
         args_rtrim = sim_args.rstrip(sim_args[-1])
         args_lrtrim = args_rtrim.split('(')[1].split(',')
         args_str = [i.replace(' ', '-') for i in args_lrtrim]
@@ -263,33 +260,55 @@ class QmEnergyLogger(Logger):
         with open(output_path, 'w') as f:
             f.write(output_str_full)
 
+    @staticmethod
+    def date_str():
+        return strftime('%Y-%m-%d', localtime())
+
+    @staticmethod
+    def time_str():
+        return strftime('%H:%M:%S', localtime())
+
+    @staticmethod
+    def log_folder():
+        script_parent_dir = Path(__file__).resolve().parents[1]
+        logging_path = str(script_parent_dir) + '/logfiles/' + str(Path(__file__).stem)
+        today_folder = Path(logging_path + '/' + QmEnergyLogger.date_str())
+        today_folder.mkdir(parents=True, exist_ok=True)
+        return str(today_folder)
+
+    _LOGTYPES = Literal["Sim", "Args", "Profile"]
+
+    @staticmethod
+    def get_logfile_name(logtype_: _LOGTYPES = None):
+        if logtype_ is not None:
+            options = get_args(QmEnergyLogger._LOGTYPES)
+            assert logtype_ in options, f"'{logtype_}' is not in {options}"
+            return str(Path(__file__).stem) + '_' + logtype_ + 'Log_' + QmEnergyLogger.time_str()
+        raise Exception(f"A logfile type MUST be specified. E.g. {get_args(QmEnergyLogger._LOGTYPES)}")
+
+    def write_sim_log(s):
+        filepath = Path(QmEnergyLogger.log_folder() + '/' + QmEnergyLogger.get_logfile_name(logtype_="Sim"))
+        s.main_dataframe.to_csv(str(filepath) + '.tsv', index=False, sep='\t', na_rep='NaN', header=True,
+                                float_format='%g')
+
+    def write_args_log(s, sim_args_dict):
+        filepath = Path(QmEnergyLogger.log_folder() + '/' + QmEnergyLogger.get_logfile_name(logtype_="Args") + ".json")
+        with open(filepath, 'w') as f:
+            json.dump(sim_args_dict, f)
+
+    def write_profile_log(s):       # FIXME - Placeholder function to write Python profile output to.
+        pass
+
     def finalize(s):
-        timestamp_date = strftime('%Y-%m-%d', localtime())
-        timestamp_time = strftime('%H:%M:%S', localtime())
-        logging_path = getcwd() + '/logfiles/' + str(Path(__file__).stem)
-        today_folder = logging_path + '/' + str(timestamp_date)
-        filename = 'QmSimulationLog_' + str(s.seed) + '_' + timestamp_time
-        filepath = today_folder + '/' + filename
-        if Path(today_folder).is_dir():
-            s.write_df_to_tsv(filepath)
-            s.write_sim_args_file(filepath, sim_args=s.sim_args)
-        else:
-            if Path(logging_path).is_dir():
-                Path.mkdir(Path(today_folder))
-                s.write_df_to_tsv(filepath)
-                s.write_sim_args_file(filepath, sim_args=s.sim_args)
-            else:
-                Path.mkdir(Path(logging_path))
-                Path.mkdir(Path(today_folder))
-                s.write_df_to_tsv(filepath)
-                s.write_sim_args_file(filepath, sim_args=s.sim_args)
+        s.write_sim_log()
+        s.write_args_log(sim_args_dict=s.sim_args)
 
 
 # END class QmEnergyLogger
 
 class QmScenarioReduceCellPower(Scenario):
 
-    def delta_cell_power(s, cell, p_target: float = 30.0):
+    def delta_cell_power(s, cell, p_target: float = 0.0):
         """
         Increase or decrease cell power towards the target power in equal amounts over the
         simulation run time remaining.
@@ -344,14 +363,14 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
 
 def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
     """
-    Creates a hex grid of 19 site (57 sectors) using the hexalattice module when using the defaults.
+    Creates a hex grid of 1 site (3 sectors) using the hexalattice module when using the defaults.
     """
     fig, ax = plt.subplots()
 
-    hexgrid_xy, _ = create_hex_grid(nx=5,
-                                    ny=5,
+    hexgrid_xy, _ = create_hex_grid(nx=1,
+                                    ny=1,
                                     min_diam=isd,
-                                    crop_circ=sim_radius,
+                                    # crop_circ=sim_radius,
                                     align_to_origin=True,
                                     edge_color=[0.75, 0.75, 0.75],
                                     h_ax=ax,
@@ -359,11 +378,11 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
+    # circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
 
-    ax.add_patch(circle_dashed)
+    # ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax_scaling = 2 * isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
+    ax_scaling = isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
     ax.set_xlim([-ax_scaling, ax_scaling])
     ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
@@ -381,52 +400,48 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, subbands=1, isd=1.0, sim_radius=2.50, nues=10, until=1.0, author='Kishan Sthankiya', sim_args=None):
-    sim = Sim(rng_seed=seed)
+def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, author='Kishan Sthankiya',
+            sim_args_dict=None):
+    sim = Sim(rng_seed=seed, params={'profile': 'SimLogProfile'})
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         cell_xyz = np.empty(3)
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
         sim.make_cell(interval=1.0, xyz=cell_xyz, n_subbands=subbands)
-    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
-    for i in ue_ppp:
-        x, y = i
-        ue_xyz = x, y, 2.0
-        plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
-        sim.make_UE(xyz=ue_xyz, reporting_interval=until * 1e-3).attach_to_strongest_cell_simple_pathloss_model()
+    #    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
+    ue_xyz = 2000.0, 0.0, 2.0
+    sim.make_UE(xyz=ue_xyz, reporting_interval=until * 1e-3).attach_to_strongest_cell_simple_pathloss_model()
     em = Energy(sim)
     for cell in sim.cells:
-        cell.set_power_dBm(43)
+        cell.set_power_dBm(49)
         cell.set_f_callback(em.f_callback, cell_i=cell.i)
     for ue in sim.UEs:
         ue.set_f_callback(em.f_callback, ue_i=ue.i)
-    cell_logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until, sim_args=sim_args)
-    sim.add_logger(cell_logger)  # std_out & dataframe
+    logger = QmEnergyLogger(sim=sim, seed=seed, energy_model=em, until=until, sim_args=sim_args_dict)
+    sim.add_logger(logger)  # std_out & dataframe
     scenario = QmScenarioReduceCellPower(sim, verbosity=0)
     sim.add_scenario(scenario)
-
+    plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
     # plt_filepath = QmEnergyLogger.finalize.
     #    today_folder + '/' + filename
-    plt.show()
+    # plt.savefig()
     sim.run(until=until)
     print(f'cell_energy_totals={em.cell_energy_totals}joules')
     print(f'UE_energy_totals  ={em.ue_energy_totals}joules')
 
 
-
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-seeds', type=int, default=10, help='number of seed values (n) for random number generator (0,1,2...,n)')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=10, help='number of UEs')
+    parser.add_argument('-seed', type=int, default=0, help='seed value for random number generator')
+    parser.add_argument('-isd', type=float, default=5000.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=5000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-nues', type=int, default=1, help='number of UEs')
     parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
-    parser.add_argument('-until', type=float, default=13.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=100.0, help='simulation time')
 
     args = parser.parse_args()
-    for seed_i in range(args.seeds):
-        test_01(seed=seed_i, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
-            until=args.until, sim_args=str(args))
+    test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
+            until=args.until, sim_args_dict=args.__dict__)

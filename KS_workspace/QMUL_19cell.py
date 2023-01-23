@@ -1,17 +1,10 @@
 # Simple script with 19 cells. 0 UEs.
-
-
 import argparse
 from dataclasses import dataclass
-from os import getcwd
-from pathlib import Path
-from sys import stdout
-from time import strftime, localtime
-
-import pandas as pd
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str
-from hexalattice.hexalattice import *
+from collections import namedtuple
 import numpy as np
+from AIMM_simulator import Cell, Logger, Sim
+from hexalattice.hexalattice import *
 
 
 @dataclass(frozen=True)
@@ -41,11 +34,50 @@ class MacroCellParameters:
     loss_cool_db: float = 0.10
     loss_mains_db: float = 0.09
 
-class QmCellLogger(Logger):     #FIXME
+
+class QmCellLogger(Logger):
     """
     Basic custom Logger for Cell data points
     """
-def loop(s):
+
+    def get_cell_data(s):
+        n_cells = s.sim.get_ncells()
+        time = [s.sim.env.now()]
+        labels = []
+        data = []
+        cell_id = cell_i.i,
+        cell_xyz = cell_i.get_xyz(),
+        cell_subbands = cell_i.get_subband_mask(),
+        n_attached_ues = cell_i.get_nattached(),
+        power_dBm = cell_i.get_power_dBm(),
+        rsrp = cell_i.get_rsrp(),
+        avg_pdsch_tput_Mbps = cell_i.get_average_throughput()
+        col_labels = [i for i, j in locals().items()]
+        cell_data.extend([time, cell_id, cell_xyz, cell_subbands, n_attached_ues, power_dBm, rsrp, avg_pdsch_tput_Mbps])
+        return data
+
+    def create_dataframe(s, data):
+        pass
+
+    def loop(s, custom_logging_interval=1):
+        '''
+        Main loop of Logger class.
+        Can be overridden to provide custom functionality.
+        '''
+        while True:
+            s.get_cell_data()
+            yield s.sim.env.timeout(custom_logging_interval)
+
+    def finalize(s):
+        '''
+        Function called at end of simulation, to implement any required finalization actions.
+        '''
+        pass
+    def loop(s):
+        while True:
+            s.get_cell_data()
+        yield s.logging_interval()
+
 
 def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
     """
@@ -64,38 +96,33 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
+    circle_dashed = plt.Circle(
+        origin, sim_radius, fill=False, linestyle='--', color='r')
 
     ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax_scaling = 2 * isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
+    # Factor to set the x,y-axis limits relative to the isd value.
+    ax_scaling = 2 * isd + 500
     ax.set_xlim([-ax_scaling, ax_scaling])
     ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
     return hexgrid_xy, fig
 
-def test_01(seed=0, subbands=1, isd=1.0, sim_radius=2.50, until=1.0,  sim_args=None):
+
+def test_01(seed=0, subbands=1, isd=1.0, sim_radius=2.50, until=1.0, sim_args=None):
     sim = Sim(rng_seed=seed)
-    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
+    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(
+        isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         cell_xyz = np.empty(3)
         cell_xyz[:2] = centre
         cell_xyz[2] = 20.0
-        sim.make_cell(interval=1.0, xyz=cell_xyz, n_subbands=subbands, power_dBm=43)
-    cell_logger = QmCellLogger(sim=sim, seed=seed, until=until, sim_args=sim_args)
+        sim.make_cell(interval=1.0, xyz=cell_xyz,
+                      n_subbands=subbands, power_dBm=43)
+    cell_logger = QmCellLogger(sim=sim)
     sim.add_logger(cell_logger)  # std_out & dataframe
+    sim.run(until=until)
 
 
-if __name__ == '__main__':  # a simple self-test
-    np.set_printoptions(precision=4, linewidth=200)
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-seeds', type=int, default=10, help='number of seed values (n) for random number generator (0,1,2...,n)')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-nues', type=int, default=10, help='number of UEs')
-    parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
-    parser.add_argument('-until', type=float, default=13.0, help='simulation time')
-
-    args = parser.parse_args()
-        test_01(seed=seed_i, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, nues=args.nues,
-            until=args.until, sim_args=str(args))
+if __name__ == '__main__':
+    test_01()
