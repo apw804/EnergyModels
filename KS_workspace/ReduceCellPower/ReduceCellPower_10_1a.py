@@ -424,7 +424,7 @@ class EnergyLogger(Logger):
             # Get the CellEnergyModel object from the dictionary for this cell
             cell_em = s.cell_energy_models[cell.i]
 
-            return cell_em.get_cell_power_kW()
+            return cell_em.update_cell_power_kW()
 
         def get_cell_ee(cell: Cell):
             """ Get the cell Energy Efficiency (bits/second/watt)"""
