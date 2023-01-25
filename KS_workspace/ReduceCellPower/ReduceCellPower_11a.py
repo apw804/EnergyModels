@@ -31,8 +31,7 @@
 # 3) fixed list comprehensions for the EnergyLogger
 # v11 - fixed the cell power cons equation
 # v11a - Tidy up: 1) plt statements; 2) Comment out unused print statements.
-#
-# v11a - FIXME - Energy efficiency and SE values don't look right
+# Testing with AIMM v2.02 to see if clean copy of AIMM simulator yields different results
 
 
 import argparse
@@ -169,7 +168,7 @@ class CellEnergyModel:
 
     def trx_chain_power_dynamic_kW(s):
         """
-        Returns the power consumption (in watts), per sector / antenna.
+        Returns the power consumption (in kW), per sector / antenna.
         """
         cell_p_out_dBm = s.cell.get_power_dBm()
 
