@@ -184,7 +184,7 @@ class CellEnergyModel:
         p_bb_watts = s.params.power_baseband_watts
 
         # Calculate the Power Amplifier power consumption in watts
-        p_pa_watts = trx_p_out_watts / from_dB(s.params.eta_pa * (1 - s.params.loss_feed_db))
+        p_pa_watts = trx_p_out_watts / (s.params.eta_pa * from_dB(1 - s.params.loss_feed_db))
 
         # Calculate power consumptions of a single TRX chain (watts)
         p_consumption_watts = p_pa_watts + p_rf_watts + p_bb_watts
