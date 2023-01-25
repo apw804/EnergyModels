@@ -357,6 +357,11 @@ class UeLogger(Logger):
         super(UeLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
 
+    def get_interference(s, ue):
+        if ue.sinr_dB is None:
+            return float(0.0)
+        else:
+            return float(ue.serving_cell.get_rsrp(ue.i) / ue.sinr_dB)
     def get_ue_data(s):
         # Create a dictionary of the variables we are interested in
         data = {
@@ -369,9 +374,8 @@ class UeLogger(Logger):
             "background_thermal_noise_dBm": [k.noise_power_dBm for k in s.sim.UEs],
             "pathloss_model": [k.pathloss.__class__.__name__ for k in s.sim.UEs],
             "pathloss_dBm": [k.pathloss(k.serving_cell.xyz, k.xyz) for k in s.sim.UEs],
-            "ue_neighbouring_cell_interference_dBm": "TBC (AIMM v2.0.2)",
-            # Use the SINR to reverse engineer the interference
-            "ue_sinr_dB": "TBC (AIMM v2.0.2)",
+            "ue_neighbouring_cell_interference_dBm": [s.get_interference(k) for k in s.sim.UEs],
+            "ue_sinr_dB": [k.sinr_dB for k in s.sim.UEs],
             "ue_cqi": [k.serving_cell.get_UE_CQI(k.i).item() for k in s.sim.UEs],
             "ue_pdsch_tput_Mbps": [k.serving_cell.get_UE_throughput(k.i) for k in s.sim.UEs]
         }
