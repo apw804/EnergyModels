@@ -458,21 +458,11 @@ class EnergyLogger(Logger):
 
         def get_cell_ee(cell: Cell):
             """ Get the cell Energy Efficiency (bits/second/watt)"""
-
-            # Convert the throughput to bits/s
-            pdsch_tp_bps = get_pdsch_throughput_Mbps(cell) * 1e6
-
-            # Convert cell power to watts
-            cell_power_cons_W = get_cell_power_kW(cell) * 1000
-
-            ee = pdsch_tp_bps / cell_power_cons_W
-
-            return ee
+            return get_pdsch_throughput_Mbps(cell) / get_cell_power_kW(cell)
 
         def get_cell_se(cell: Cell):
             """ Get the cell Spectral Efficiency (bits/second/Hertz)"""
-
-            return get_pdsch_throughput_Mbps(cell) / cell.bw_MHz * 1.e6
+            return get_pdsch_throughput_Mbps(cell) / cell.bw_MHz
 
         # Create a dictionary of the variables we are interested in
         data = {
