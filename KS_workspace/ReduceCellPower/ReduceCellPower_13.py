@@ -41,6 +41,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import contextmanager, redirect_stderr
 from dataclasses import dataclass
 from pathlib import Path
 from sys import stdout
@@ -665,13 +666,18 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     # plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
 
+    # Suppress stderr
+    @contextmanager
+    def suppress_stderr():
+        """A context manager that redirects stdout and stderr to devnull"""
+        with open(os.devnull, 'w') as fnull:
+            with redirect_stderr(fnull) as err:  # Could add this in --> "redirect_stdout(fnull) as out:"
+                yield (err)
+
     # Run the simulation
     sim.run(until=until)
 
-    f = open(os.devnull, 'w')
-    sys.stdout = f
-    f1 = open(os.devnull, 'w')
-    sys.stderr = f1
+
 
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
