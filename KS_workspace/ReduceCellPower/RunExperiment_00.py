@@ -1,4 +1,5 @@
 # Script for multiple runs of ReduceCellPower12.py
+# Use as a template.
 # Kishan Sthankiya
 import argparse
 import numpy as np
@@ -10,6 +11,7 @@ name = "Exp_Seeds"
 
 # Define the arguments
 seeds_list = [i for i in range(3)]
+
 
 if __name__ == '__main__':
     for i in seeds_list:
