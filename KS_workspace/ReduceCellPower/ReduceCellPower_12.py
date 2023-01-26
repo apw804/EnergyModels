@@ -628,7 +628,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
     parser.add_argument('-power_dBm', type=float, default=43.0, help='set the transmit power of the cell in dBm')
-    parser.add_argument('-until', type=float, default=10.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Logging interval (in seconds) for the functions that will capture simulation data and for how often the UEs will send reports to their cells.')
 
