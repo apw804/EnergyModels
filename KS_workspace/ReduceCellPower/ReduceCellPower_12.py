@@ -235,12 +235,16 @@ class SimLogger(Logger):
        Custom Logger for energy modelling.
        """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', experiment_name=None, f=stdout,
                  logging_interval=1.0):
         s.until: float = until
         s.seed: int = seed
         super(SimLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
+        s.experiment_name = experiment_name
+        if experiment_name is not None:
+            s.experiment_suffix = str(f"s{s.seed}_t{s.until:.0f}_nues{s.sim_args['nues']:.0f}_dBm{s.sim_args['power_dBm']:.0f}")
+            print(s.experiment_suffix)
 
     _LOGTYPES = Literal["Cell", "UE", "Energy", "Config", "PerfProfile"]
 
@@ -253,10 +257,13 @@ class SimLogger(Logger):
         return strftime('%H:%M:%S', localtime())
 
     @staticmethod
-    def log_folder():
+    def log_folder(experiment_name: str = None):
         script_parent_dir = Path(__file__).resolve().parents[1]
         logging_path = str(script_parent_dir) + '/logfiles/' + str(Path(__file__).stem)
-        today_folder = Path(logging_path + '/' + SimLogger.date_str())
+        if experiment_name is not None:
+            today_folder = Path(logging_path + '/' + experiment_name + "_" + SimLogger.date_str())
+        else:
+            today_folder = Path(logging_path + '/' + SimLogger.date_str())
         today_folder.mkdir(parents=True, exist_ok=True)
         return str(today_folder)
 
@@ -367,7 +374,7 @@ class UeLogger(Logger):
     def get_distance_serving_cell(s, ue):
         ue_xy = ue.xyz[:2]
         serving_cell_xy = ue.serving_cell.xyz[:2]
-        dist = np.linalg.norm(serving_cell_xy-ue_xy)
+        dist = np.linalg.norm(serving_cell_xy - ue_xy)
         return dist
 
     def get_ue_data(s):
@@ -591,7 +598,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
 
 def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
             author='Kishan Sthankiya',
-            sim_args_dict=None, logging_interval=None):
+            sim_args_dict=None, logging_interval=None, experiment_name=None):
     sim = Sim(rng_seed=seed)
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
@@ -608,7 +615,7 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
         ue_xyz = x, y, 1.5
         sim.make_UE(xyz=ue_xyz,
                     reporting_interval=until * logging_interval).attach_to_strongest_cell_simple_pathloss_model()
-    sim_logger = SimLogger(sim=sim, seed=seed, until=until, sim_args=sim_args_dict)
+    sim_logger = SimLogger(sim=sim, seed=seed, until=until, sim_args=sim_args_dict, experiment_name=experiment_name)
     energy_logger = EnergyLogger(sim=sim, seed=seed, cell_energy_models=cell_energy_models_dict, until=until,
                                  logging_interval=logging_interval)
     cell_logger = CellLogger(sim=sim, until=until, logging_interval=logging_interval)
@@ -630,9 +637,12 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-power_dBm', type=float, default=43.0, help='set the transmit power of the cell in dBm')
     parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
-                        help='Logging interval (in seconds) for the functions that will capture simulation data and for how often the UEs will send reports to their cells.')
+                        help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
+    parser.add_argument('-experiment_name', type=str, default='Exp_',
+                        help='name of a specific experiment to influence the output log names.')
 
     args = parser.parse_args()
     test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm,
             nues=args.nues,
-            until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval)
+            until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval,
+            experiment_name=args.experiment_name)
