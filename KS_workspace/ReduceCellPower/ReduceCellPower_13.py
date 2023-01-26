@@ -38,22 +38,18 @@
 
 import argparse
 import json
+import logging
 import sys
-import progressbar
 from dataclasses import dataclass
-from operator import itemgetter
-from os import getcwd
 from pathlib import Path
 from sys import stdout
 from time import strftime, localtime
 from typing import Literal, get_args
 
-import pandas as pd
-from AIMM_simulator import Cell, UE, Scenario, Sim, from_dB, Logger, np_array_to_str, CQI_to_64QAM_efficiency, \
-    NR_5G_standard_functions
-from hexalattice.hexalattice import *
 import numpy as np
-import logging
+import pandas as pd
+from AIMM_simulator import Cell, Sim, from_dB, Logger, np_array_to_str
+from hexalattice.hexalattice import *
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 INFO_LOG = True
@@ -237,13 +233,12 @@ class SimLogger(Logger):
        Custom Logger for Simulation config and output.
        """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
-                 logging_interval=1.0, experiment_suffix=None, experiment_name=None):
+    def __init__(s, sim, seed, until, sim_args=None, header='', logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
         s.until: float = until
         s.seed: int = seed
-        super(SimLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        super(SimLogger, s).__init__(sim)
         s.sim_args = sim_args
 
     _LOGTYPES = Literal["Cell", "UE", "Energy", "Config", "PerfProfile"]
@@ -301,7 +296,7 @@ class CellLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=None,
                  logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
@@ -365,7 +360,7 @@ class UeLogger(Logger):
     Custom Logger for UE data.
     """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=None,
                  logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
@@ -449,7 +444,7 @@ class EnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=stdout, logging_interval=1.0,
+    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=None, logging_interval=1.0,
                  experiment_suffix=None, experiment_name=None):
         s.seed = seed
         s.experiment_suffix = experiment_suffix
