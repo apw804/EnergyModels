@@ -39,6 +39,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -279,7 +280,7 @@ class SimLogger(Logger):
             else:
                 df.to_csv(str(filepath) + '.tsv', index=False, sep='\t', na_rep='NaN', header=True,
                           float_format='%g')
-            return print(f'Logfile written to {filepath}')
+            logging.debug('Logfile written to %s', filepath)
         else:
             raise Exception(f"A logfile type MUST be specified. E.g. {get_args(cls._LOGTYPES)}")
 
@@ -620,7 +621,7 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
             author='Kishan Sthankiya',
             sim_args_dict=None, logging_interval=None, experiment_name=None):
     # Set up the Simulator instance
-    sim = Sim(rng_seed=seed)
+    sim = Sim(rng_seed=seed, show_params=False)
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
@@ -667,6 +668,10 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     # Run the simulation
     sim.run(until=until)
 
+    f = open(os.devnull, 'w')
+    sys.stdout = f
+    f1 = open(os.devnull, 'w')
+    sys.stderr = f1
 
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
