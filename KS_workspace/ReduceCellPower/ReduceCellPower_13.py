@@ -50,7 +50,7 @@ from typing import Literal, get_args
 
 import numpy as np
 import pandas as pd
-from AIMM_simulator import Cell, Sim, from_dB, Logger, np_array_to_str
+from AIMM_simulator import Cell, Sim, from_dB, Logger, np_array_to_str, Scenario
 from hexalattice.hexalattice import *
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -235,7 +235,8 @@ class SimLogger(Logger):
        Custom Logger for Simulation config and output.
        """
 
-    def __init__(s, sim, seed, until, sim_args=None, header='', logging_interval=1.0, experiment_suffix=None, experiment_name=None):
+    def __init__(s, sim, seed, until, sim_args=None, header='', logging_interval=1.0, experiment_suffix=None,
+                 experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
         s.until: float = until
@@ -547,6 +548,36 @@ class EnergyLogger(Logger):
 # END class QmEnergyLogger
 
 
+class QmScenarioReduceCellPower(Scenario):
+    def __init__(s, sim, target_power_dBm: float):
+        s.func = s.loop
+        s.end_power = target_power_dBm
+        super(QmScenarioReduceCellPower, s).__init__(sim, verbosity=0)
+
+
+
+
+    def delta_cell_power(s, cell):
+        """
+        Increase or decrease cell power towards the target power in equal amounts over the
+        simulation run time remaining.
+        """
+        delta_p = s.end_power - cell.get_power_dBm()
+        events_remaining = (s.sim.until - s.sim.env.now) / s.interval
+        delta_p_event = delta_p / events_remaining
+        new_cell_power = int(cell.get_power_dBm() + delta_p_event)
+        cell.set_power_dBm(new_cell_power)
+
+    # This loop sets the amount of time between each event
+    def loop(s):
+        while True:
+            for cell in s.sim.cells:
+                s.delta_cell_power(cell)
+            yield s.sim.wait(s.interval)
+
+
+# END class QmScenarioReduceCellPower
+
 def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
     """
     Generates npts points, distributed according to a homogeneous PPP
@@ -618,7 +649,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
+def test_01(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
             author='Kishan Sthankiya',
             sim_args_dict=None, logging_interval=None, experiment_name=None):
     # Set up the Simulator instance
@@ -662,6 +693,10 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
                          experiment_suffix=experiment_suffix)
     sim.add_loggers([sim_logger, energy_logger, cell_logger, ue_logger])  # std_out & dataframe
 
+    # Add the Scenario object to the simulation
+    scenario = QmScenarioReduceCellPower(sim=sim, target_power_dBm=target_power_dBm)
+    sim.add_scenario(scenario)
+
     # Plot setup if desired
     # plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
@@ -678,7 +713,6 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     sim.run(until=until)
 
 
-
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
@@ -691,11 +725,12 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
-    parser.add_argument('-experiment_name', type=str, default='Exp01',
+    parser.add_argument('-experiment_name', type=str, default='exp02',
                         help='name of a specific experiment to influence the output log names.')
+    parser.add_argument('-target_power_dBm', type=float, default=49.0, help='the target power to reach from the initial power set.')
 
     args = parser.parse_args()
     test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm,
             nues=args.nues,
             until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval,
-            experiment_name=args.experiment_name)
+            experiment_name=args.experiment_name, target_power_dBm=args.target_power_dBm)
