@@ -235,16 +235,14 @@ class SimLogger(Logger):
        Custom Logger for energy modelling.
        """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', experiment_name=None, f=stdout,
-                 logging_interval=1.0):
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
+                 logging_interval=1.0, experiment_suffix=None, experiment_name=None):
+        s.experiment_suffix = experiment_suffix
+        s.experiment_name = experiment_name
         s.until: float = until
         s.seed: int = seed
         super(SimLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
-        s.experiment_name = experiment_name
-        if experiment_name is not None:
-            s.experiment_suffix = str(f"s{s.seed}_t{s.until:.0f}_nues{s.sim_args['nues']:.0f}_dBm{s.sim_args['power_dBm']:.0f}")
-            print(s.experiment_suffix)
 
     _LOGTYPES = Literal["Cell", "UE", "Energy", "Config", "PerfProfile"]
 
@@ -257,23 +255,24 @@ class SimLogger(Logger):
         return strftime('%H:%M:%S', localtime())
 
     @staticmethod
-    def log_folder(experiment_name: str = None):
+    def log_folder(experiment_name: str = None, experiment_suffix: str = None):
         script_parent_dir = Path(__file__).resolve().parents[1]
         logging_path = str(script_parent_dir) + '/logfiles/' + str(Path(__file__).stem)
         if experiment_name is not None:
-            today_folder = Path(logging_path + '/' + experiment_name + "_" + SimLogger.date_str())
+            today_folder = Path(logging_path + '/' + SimLogger.date_str() + '/' + experiment_name + experiment_suffix)
         else:
             today_folder = Path(logging_path + '/' + SimLogger.date_str())
         today_folder.mkdir(parents=True, exist_ok=True)
         return str(today_folder)
 
     @classmethod
-    def write_log(cls, logtype_: _LOGTYPES, sim_args_dict: dict = None, df: pd.DataFrame = None):
+    def write_log(cls, logtype_: _LOGTYPES, sim_args_dict: dict = None, df: pd.DataFrame = None,
+                  experiment_name: str = None, experiment_suffix: str = None):
         if logtype_ is not None:
             options = get_args(cls._LOGTYPES)
             assert logtype_ in options, f"'{logtype_}' is not in {options}"
             logfile_name = str(Path(__file__).stem) + '_' + cls.time_str() + '_' + logtype_ + 'Log'
-            filepath = SimLogger.log_folder() + '/' + logfile_name
+            filepath = SimLogger.log_folder(experiment_name, experiment_suffix) + '/' + logfile_name
             if logtype_ == "Config":
                 filepath = filepath + ".json"
                 with open(filepath, 'w') as f:
@@ -289,7 +288,8 @@ class SimLogger(Logger):
 
     def finalize(s):
         # Write the args used for this experiment to json for reproducing
-        s.write_log(sim_args_dict=s.sim_args, logtype_="Config")
+        s.write_log(sim_args_dict=s.sim_args, logtype_="Config", experiment_name=s.experiment_name,
+                    experiment_suffix=s.experiment_suffix)
 
 
 # END class SimLogger
@@ -300,8 +300,9 @@ class CellLogger(Logger):
     """
 
     def __init__(s, sim, until, sim_args=None, func=None, header='', f=stdout,
-                 logging_interval=1.0):
-
+                 logging_interval=1.0, experiment_suffix=None, experiment_name=None):
+        s.experiment_suffix = experiment_suffix
+        s.experiment_name = experiment_name
         s.until: float = until
         s.cell_dataframe = None  # Create empty placeholder for later pd.DataFrame
         super(CellLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
@@ -346,7 +347,8 @@ class CellLogger(Logger):
 
     def finalize(s):
         # print(s.cell_dataframe)
-        SimLogger.write_log(logtype_="Cell", df=s.cell_dataframe)
+        SimLogger.write_log(logtype_="Cell", df=s.cell_dataframe, experiment_name=s.experiment_name,
+                    experiment_suffix=s.experiment_suffix)
 
 
 # END class CellLogger
@@ -358,8 +360,9 @@ class UeLogger(Logger):
     """
 
     def __init__(s, sim, until, sim_args=None, func=None, header='', f=stdout,
-                 logging_interval=1.0):
-
+                 logging_interval=1.0, experiment_suffix=None, experiment_name=None):
+        s.experiment_suffix = experiment_suffix
+        s.experiment_name = experiment_name
         s.until: float = until
         s.ue_dataframe = None  # Create empty placeholder for later pd.DataFrame
         super(UeLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
@@ -423,7 +426,8 @@ class UeLogger(Logger):
 
     def finalize(s):
         # print(s.ue_dataframe)
-        SimLogger.write_log(logtype_="UE", df=s.ue_dataframe)
+        SimLogger.write_log(logtype_="UE", df=s.ue_dataframe, experiment_name=s.experiment_name,
+                    experiment_suffix=s.experiment_suffix)
 
 
 # END class UeLogger
@@ -434,8 +438,10 @@ class EnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=stdout,
-                 logging_interval=1.0):
+    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=stdout, logging_interval=1.0,
+                 experiment_suffix=None, experiment_name=None):
+        s.experiment_suffix = experiment_suffix
+        s.experiment_name = experiment_name
         s.cell_energy_models = cell_energy_models
         s.until: float = until
         s.energy_dataframe = None  # Placeholder for later pd.DataFrame
@@ -519,7 +525,8 @@ class EnergyLogger(Logger):
 
     def finalize(s):
         # print(s.energy_dataframe)
-        SimLogger.write_log(logtype_="Energy", df=s.energy_dataframe)
+        SimLogger.write_log(logtype_="Energy", df=s.energy_dataframe, experiment_name=s.experiment_name,
+                            experiment_suffix=s.experiment_suffix)
 
 
 # END class QmEnergyLogger
@@ -599,30 +606,53 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
 def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
             author='Kishan Sthankiya',
             sim_args_dict=None, logging_interval=None, experiment_name=None):
+    # Set up the Simulator instance
     sim = Sim(rng_seed=seed)
+
+    # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         x, y = centre
         z = 25.0
         sim.make_cell(interval=until * 1e-2, xyz=[x, y, z], n_subbands=subbands, power_dBm=power_dBm)
+
+    # Create a dictionary of cell-specific energy models
     cell_energy_models_dict = {}
     for cell in sim.cells:
         cell_energy_models_dict[cell.i] = (CellEnergyModel(cell))
         cell.set_f_callback(cell_energy_models_dict[cell.i].f_callback(cell))
+
+    # Generate UEs using PPP and add to simulation
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, 1.5
         sim.make_UE(xyz=ue_xyz,
                     reporting_interval=until * logging_interval).attach_to_strongest_cell_simple_pathloss_model()
-    sim_logger = SimLogger(sim=sim, seed=seed, until=until, sim_args=sim_args_dict, experiment_name=experiment_name)
+
+    # Set experiment name and get suffix
+    if experiment_name is not None:
+        experiment_suffix = str(
+            f"_s{seed}_t{until:.0f}_nues{nues:.0f}_dBm{power_dBm:.0f}")
+        print(experiment_suffix)
+
+    # Set up loggers and add to simulation
+    sim_logger = SimLogger(sim=sim, seed=seed, until=until, sim_args=sim_args_dict, experiment_name=experiment_name,
+                           experiment_suffix=experiment_suffix)
     energy_logger = EnergyLogger(sim=sim, seed=seed, cell_energy_models=cell_energy_models_dict, until=until,
-                                 logging_interval=logging_interval)
-    cell_logger = CellLogger(sim=sim, until=until, logging_interval=logging_interval)
-    ue_logger = UeLogger(sim=sim, until=until, logging_interval=logging_interval)
+                                 logging_interval=logging_interval, experiment_name=experiment_name,
+                                 experiment_suffix=experiment_suffix)
+    cell_logger = CellLogger(sim=sim, until=until, logging_interval=logging_interval, experiment_name=experiment_name,
+                             experiment_suffix=experiment_suffix)
+    ue_logger = UeLogger(sim=sim, until=until, logging_interval=logging_interval, experiment_name=experiment_name,
+                         experiment_suffix=experiment_suffix)
     sim.add_loggers([sim_logger, energy_logger, cell_logger, ue_logger])  # std_out & dataframe
+
+    # Plot setup if desired
     # plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
+
+    # Run the simulation
     sim.run(until=until)
 
 
@@ -638,7 +668,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
-    parser.add_argument('-experiment_name', type=str, default='Exp_',
+    parser.add_argument('-experiment_name', type=str, default='Exp01',
                         help='name of a specific experiment to influence the output log names.')
 
     args = parser.parse_args()
