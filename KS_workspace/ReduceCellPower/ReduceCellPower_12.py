@@ -118,7 +118,7 @@ class CellEnergyModel:
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         s.cell_id = cell.i
         logging.info("Attaching CellEnergyModel to Cell[%s]", s.cell.i)
-        if s.cell.get_power_dBm() > 30.0:
+        if s.cell.get_power_dBm() >= 30.0:
             logging.info("Cell[%s] transmit power > 30 dBm.", s.cell.i)
 
             s.cell_type = 'MACRO'
