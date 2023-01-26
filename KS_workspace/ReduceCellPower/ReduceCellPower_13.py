@@ -33,11 +33,14 @@
 # v11a - Tidy up: 1) plt statements; 2) Comment out unused print statements.
 # Testing with AIMM v2.02 to see if clean copy of AIMM simulator yields different results
 # Added UE distance from serving cell to UE Logger.
+# FIXME - need a better way to output tables for different seed values & power levels.
+# FIXME - Use the progressbar
 
 
 import argparse
 import json
 import sys
+from progressbar import progressbar
 from dataclasses import dataclass
 from operator import itemgetter
 from os import getcwd
@@ -117,41 +120,41 @@ class CellEnergyModel:
 
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         s.cell_id = cell.i
-        logging.info("Attaching CellEnergyModel to Cell[%s]", s.cell.i)
+        logging.debug("Attaching CellEnergyModel to Cell[%s]", s.cell.i)
         if s.cell.get_power_dBm() >= 30.0:
-            logging.info("Cell[%s] transmit power > 30 dBm.", s.cell.i)
+            logging.debug("Cell[%s] transmit power > 30 dBm.", s.cell.i)
 
             s.cell_type = 'MACRO'
-            logging.info("Cell[%s] type set to %s.", cell.i, s.cell_type)
+            logging.debug("Cell[%s] type set to %s.", cell.i, s.cell_type)
 
             s.params = MacroCellParameters()
-            logging.info("Cell[%s] params set to %s.", cell.i, s.params.__class__.__name__)
+            logging.debug("Cell[%s] params set to %s.", cell.i, s.params.__class__.__name__)
 
         else:
-            logging.info("Cell[%s] transmit power < 30 dBm.", s.cell.i)
+            logging.debug("Cell[%s] transmit power < 30 dBm.", s.cell.i)
 
             s.cell_type = 'SMALL'
-            logging.info("Cell[%s] type set to %s.", s.cell.i, s.cell_type)
+            logging.debug("Cell[%s] type set to %s.", s.cell.i, s.cell_type)
 
             s.params = SmallCellParameters()
-            logging.info("Cell[%s] params set to %s.", s.cell.i, s.params.__class__.__name__)
+            logging.debug("Cell[%s] params set to %s.", s.cell.i, s.params.__class__.__name__)
 
         # List of params to store
         s.CELL_POWER_OUT_DBM_MAX = s.params.p_max_dbm
-        logging.info("Cell[%s] P_out_Cell_max_dBm: %s.", s.cell.i, s.CELL_POWER_OUT_DBM_MAX)
+        logging.debug("Cell[%s] P_out_Cell_max_dBm: %s.", s.cell.i, s.CELL_POWER_OUT_DBM_MAX)
 
         s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = s.params.power_static_watts / 1000  # baseline energy use
-        logging.info("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", s.cell.i,
+        logging.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", s.cell.i,
                      s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
 
         s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = s.trx_chain_power_dynamic_kW()  # The load based power consumption
-        logging.info("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", s.cell.i,
+        logging.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", s.cell.i,
                      s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
 
         # Calculate the starting cell power
         s.cell_power_kW = s.params.sectors * s.params.antennas * (
                 s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        logging.info("Starting power consumption for Cell[%s] (kW): %s", s.cell.i, s.cell_power_kW)
+        logging.debug("Starting power consumption for Cell[%s] (kW): %s", s.cell.i, s.cell_power_kW)
 
         # END of INIT
 
@@ -299,11 +302,12 @@ class CellLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, until, sim_args=None, func=None, header='', f=stdout,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
                  logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
         s.until: float = until
+        s.seed = seed
         s.cell_dataframe = None  # Create empty placeholder for later pd.DataFrame
         super(CellLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
@@ -311,6 +315,7 @@ class CellLogger(Logger):
     def get_cell_data(s):
         # Create a dictionary of the variables we are interested in
         data = {
+            "seed": [s.seed] * s.sim.get_ncells(),
             "time": [s.sim.env.now] * s.sim.get_ncells(),
             "cell_id": [k.i for k in s.sim.cells],
             "cell_xyz": [str(k.xyz).strip('[] ') for k in s.sim.cells],
@@ -359,10 +364,11 @@ class UeLogger(Logger):
     Custom Logger for UE data.
     """
 
-    def __init__(s, sim, until, sim_args=None, func=None, header='', f=stdout,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=stdout,
                  logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
+        s.seed = seed
         s.until: float = until
         s.ue_dataframe = None  # Create empty placeholder for later pd.DataFrame
         super(UeLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
@@ -383,6 +389,7 @@ class UeLogger(Logger):
     def get_ue_data(s):
         # Create a dictionary of the variables we are interested in
         data = {
+            "seed": [s.seed] * s.sim.get_nues(),
             "time": [s.sim.env.now] * s.sim.get_nues(),
             "ue_id": [k.i for k in s.sim.UEs],
             "ue_xyz": [str(k.xyz).strip('[] ') for k in s.sim.UEs],
@@ -440,6 +447,7 @@ class EnergyLogger(Logger):
 
     def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=stdout, logging_interval=1.0,
                  experiment_suffix=None, experiment_name=None):
+        s.seed = seed
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
         s.cell_energy_models = cell_energy_models
@@ -488,6 +496,7 @@ class EnergyLogger(Logger):
 
         # Create a dictionary of the variables we are interested in
         data = {
+            "seed": [s.seed] * s.sim.get_ncells(),
             "time": [s.sim.env.now] * s.sim.get_ncells(),
             "cell_id": [k.i for k in s.sim.cells],
             "cell_tx_power_dBm": [k.power_dBm for k in s.sim.cells],
@@ -606,6 +615,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
 def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
             author='Kishan Sthankiya',
             sim_args_dict=None, logging_interval=None, experiment_name=None):
+
     # Set up the Simulator instance
     sim = Sim(rng_seed=seed)
 
@@ -642,9 +652,9 @@ def test_01(seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100
     energy_logger = EnergyLogger(sim=sim, seed=seed, cell_energy_models=cell_energy_models_dict, until=until,
                                  logging_interval=logging_interval, experiment_name=experiment_name,
                                  experiment_suffix=experiment_suffix)
-    cell_logger = CellLogger(sim=sim, until=until, logging_interval=logging_interval, experiment_name=experiment_name,
+    cell_logger = CellLogger(sim=sim, until=until, seed=seed, logging_interval=logging_interval, experiment_name=experiment_name,
                              experiment_suffix=experiment_suffix)
-    ue_logger = UeLogger(sim=sim, until=until, logging_interval=logging_interval, experiment_name=experiment_name,
+    ue_logger = UeLogger(sim=sim, until=until, seed=seed, logging_interval=logging_interval, experiment_name=experiment_name,
                          experiment_suffix=experiment_suffix)
     sim.add_loggers([sim_logger, energy_logger, cell_logger, ue_logger])  # std_out & dataframe
 
