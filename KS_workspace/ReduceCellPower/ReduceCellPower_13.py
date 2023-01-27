@@ -737,7 +737,11 @@ if __name__ == '__main__':  # a simple self-test
                         help='the target power to reach from the initial power set.')
 
     args = parser.parse_args()
-    main(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm,
-         nues=args.nues,
-         until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval,
-         experiment_name=args.experiment_name, target_power_dBm=args.target_power_dBm)
+    main(seed=args.seed, subbands=args.subbands,
+         isd=args.isd, sim_radius=args.sim_radius,
+         power_dBm=args.power_dBm, nues=args.nues,
+         fc_GHz=args.fc_GHz, h_UT=args.h_UT, h_BS=args.h_BS,
+         until=args.until, sim_args_dict=args.__dict__,
+         logging_interval=args.logging_interval,
+         experiment_name=args.experiment_name,
+         target_power_dBm=args.target_power_dBm)
