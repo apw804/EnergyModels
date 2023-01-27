@@ -9,10 +9,10 @@ import numpy as np
 from tqdm import tqdm
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from os import devnull
-from ReduceCellPower_13 import test_01
+from ReduceCellPower_13 import main
 
 # Set the Experiment name
-name = "Exp_Seeds"
+name = "n2_f1960MHz_FDD_bw10MHz"
 
 # Set the starting power_dBm for all cells
 p_start: float = 30.0
@@ -43,6 +43,11 @@ if __name__ == '__main__':
                                     help='Simulation bounds radius in metres')
                 parser.add_argument('-nues', type=int, default=1000, help='number of UEs')
                 parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
+                parser.add_argument('-fc_GHz', type=float, default=3.40, help='Centre frequency in GHz')
+                parser.add_argument('-h_UT', type=float, default=1.5,
+                                    help='Height of User Terminal (=UE) in metres (default=1.5)')
+                parser.add_argument('-h_BS', type=float, default=25.0,
+                                    help='Height of Base Station in metres (default=25)')
                 parser.add_argument('-power_dBm', type=float, default=p_start,
                                     help='set the transmit power of the cell in dBm')
                 parser.add_argument('-until', type=float, default=until, help='simulation time')
@@ -54,6 +59,11 @@ if __name__ == '__main__':
                                     help='the target power to reach from the initial power set.')
                 args = parser.parse_args()
 
-                test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius,
-                        power_dBm=args.power_dBm, nues=args.nues, until=args.until, sim_args_dict=args.__dict__,
-                        logging_interval=args.logging_interval, experiment_name=name, target_power_dBm=args.target_power_dBm)
+                main(seed=args.seed, subbands=args.subbands,
+                     isd=args.isd, sim_radius=args.sim_radius,
+                     power_dBm=args.power_dBm, nues=args.nues,
+                     fc_GHz=args.fc_GHz, h_UT=args.h_UT, h_BS=args.h_BS,
+                     until=args.until, sim_args_dict=args.__dict__,
+                     logging_interval=args.logging_interval,
+                     experiment_name=args.experiment_name,
+                     target_power_dBm=args.target_power_dBm)
