@@ -33,7 +33,7 @@ def suppress_stderr():
 
 
 if __name__ == '__main__':
-    for i in tqdm(range(10)):
+    for i in tqdm(range(100)):
             with suppress_stderr():
                 parser = argparse.ArgumentParser()
                 parser.add_argument('-seed', type=int, default=i, help='seed value for random number generator')
