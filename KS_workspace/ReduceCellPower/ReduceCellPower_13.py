@@ -34,7 +34,8 @@
 # Testing with AIMM v2.02 to see if clean copy of AIMM simulator yields different results
 # Added UE distance from serving cell to UE Logger.
 # FIXME - need a better way to output tables for different seed values & power levels.
-# FIXME - need to set the centre frequency of the UMa pathloss mode when changing the Simulation centre frequency.
+# Hook to set the centre frequency of the UMa pathloss mode when changing the Simulation centre frequency.
+# from os import devnull
 
 
 import argparse
@@ -244,6 +245,7 @@ class SimLogger(Logger):
         s.seed: int = seed
         super(SimLogger, s).__init__(sim)
         s.sim_args = sim_args
+        s.f = open(os.devnull, 'w')
 
     _LOGTYPES = Literal["Cell", "UE", "Energy", "Config", "PerfProfile"]
 
@@ -307,8 +309,9 @@ class CellLogger(Logger):
         s.until: float = until
         s.seed = seed
         s.cell_dataframe = None  # Create empty placeholder for later pd.DataFrame
-        super(CellLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        super().__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
+        s.f = open(os.devnull, 'w')
 
     def get_cell_data(s):
         # Create a dictionary of the variables we are interested in
@@ -364,7 +367,7 @@ class UeLogger(Logger):
     Custom Logger for UE data.
     """
 
-    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=None,
+    def __init__(s, sim, seed, until, sim_args=None, func=None, header='', f=os.devnull,
                  logging_interval=1.0, experiment_suffix=None, experiment_name=None):
         s.experiment_suffix = experiment_suffix
         s.experiment_name = experiment_name
@@ -373,6 +376,7 @@ class UeLogger(Logger):
         s.ue_dataframe = None  # Create empty placeholder for later pd.DataFrame
         super(UeLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
+        s.f = open(os.devnull, 'w')
 
     def get_interference(s, ue):
         if ue.sinr_dB is None:
@@ -448,7 +452,7 @@ class EnergyLogger(Logger):
     Custom Logger for energy modelling.
     """
 
-    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=None, logging_interval=1.0,
+    def __init__(s, sim, seed, cell_energy_models, until, func=None, header='', f=os.devnull, logging_interval=1.0,
                  experiment_suffix=None, experiment_name=None):
         s.seed = seed
         s.experiment_suffix = experiment_suffix
@@ -457,6 +461,7 @@ class EnergyLogger(Logger):
         s.until: float = until
         s.energy_dataframe = None  # Placeholder for later pd.DataFrame
         super(EnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        s.f = open(os.devnull, 'w')
 
     def get_energy_data(s):
         if s.sim.env.now == 0:
@@ -551,9 +556,10 @@ class EnergyLogger(Logger):
 
 class QmScenarioReduceCellPower(Scenario):
     def __init__(s, sim, target_power_dBm: float):
-        s.func = s.loop
+        super().__init__(sim)
         s.end_power = target_power_dBm
-        super(QmScenarioReduceCellPower, s).__init__(sim, verbosity=0)
+        s.sim = sim
+        s.interval = 1.0
 
     def delta_cell_power(s, cell):
         """
@@ -728,7 +734,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-h_UT', type=float, default=1.5, help='Height of User Terminal (=UE) in metres (default=1.5)')
     parser.add_argument('-h_BS', type=float, default=25.0, help='Height of Base Station in metres (default=25)')
     parser.add_argument('-power_dBm', type=float, default=43.0, help='Starting transmit power of the cell in dBm (default=43.0)')
-    parser.add_argument('-until', type=float, default=2.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=21.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
     parser.add_argument('-experiment_name', type=str, default='Test01',
