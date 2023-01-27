@@ -34,6 +34,7 @@
 # Testing with AIMM v2.02 to see if clean copy of AIMM simulator yields different results
 # Added UE distance from serving cell to UE Logger.
 # FIXME - need a better way to output tables for different seed values & power levels.
+# FIXME - need to set the centre frequency of the UMa pathloss mode when changing the Simulation centre frequency.
 
 
 import argparse
@@ -50,7 +51,7 @@ from typing import Literal, get_args
 
 import numpy as np
 import pandas as pd
-from AIMM_simulator import Cell, Sim, from_dB, Logger, np_array_to_str, Scenario
+from AIMM_simulator import Cell, Sim, from_dB, Logger, np_array_to_str, Scenario, UMa_pathloss
 from hexalattice.hexalattice import *
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -554,9 +555,6 @@ class QmScenarioReduceCellPower(Scenario):
         s.end_power = target_power_dBm
         super(QmScenarioReduceCellPower, s).__init__(sim, verbosity=0)
 
-
-
-
     def delta_cell_power(s, cell):
         """
         Increase or decrease cell power towards the target power in equal amounts over the
@@ -649,11 +647,13 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def test_01(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, power_dBm=43.0,
-            author='Kishan Sthankiya',
-            sim_args_dict=None, logging_interval=None, experiment_name=None):
+def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nues=1, until=100.0, fc_GHz=None,
+         h_UT=None, h_BS=None, power_dBm=43.0,
+         author='Kishan Sthankiya',
+         sim_args_dict=None, logging_interval=None, experiment_name=None):
     # Set up the Simulator instance
-    sim = Sim(rng_seed=seed, show_params=False)
+    sim_params = {'fc_GHz': fc_GHz, 'h_UT': h_UT, 'h_BS': h_BS}
+    sim = Sim(rng_seed=seed, params=sim_params, show_params=False)
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
@@ -668,13 +668,16 @@ def test_01(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0,
         cell_energy_models_dict[cell.i] = (CellEnergyModel(cell))
         cell.set_f_callback(cell_energy_models_dict[cell.i].f_callback(cell))
 
+    # Create an instance of the UMa pathloss model
+    UMa = UMa_pathloss(fc_GHz=fc_GHz, h_UT=h_UT, h_BS=h_BS, LOS=True)
+
     # Generate UEs using PPP and add to simulation
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, 1.5
         sim.make_UE(xyz=ue_xyz,
-                    reporting_interval=until * logging_interval).attach_to_strongest_cell_simple_pathloss_model()
+                    reporting_interval=logging_interval, pathloss_model=UMa).attach_to_strongest_cell_simple_pathloss_model()
 
     # Set experiment suffix
     experiment_suffix = str(f"s{seed}_t{until:.0f}_nues{nues:.0f}_dBm{power_dBm:.0f}")
@@ -721,16 +724,20 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
-    parser.add_argument('-power_dBm', type=float, default=43.0, help='set the transmit power of the cell in dBm')
+    parser.add_argument('-fc_GHz', type=float, default=3.40, help='Centre frequency in GHz')
+    parser.add_argument('-h_UT', type=float, default=1.5, help='Height of User Terminal (=UE) in metres (default=1.5)')
+    parser.add_argument('-h_BS', type=float, default=25.0, help='Height of Base Station in metres (default=25)')
+    parser.add_argument('-power_dBm', type=float, default=43.0, help='Starting transmit power of the cell in dBm (default=43.0)')
     parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
     parser.add_argument('-experiment_name', type=str, default='exp02',
                         help='name of a specific experiment to influence the output log names.')
-    parser.add_argument('-target_power_dBm', type=float, default=49.0, help='the target power to reach from the initial power set.')
+    parser.add_argument('-target_power_dBm', type=float, default=49.0,
+                        help='the target power to reach from the initial power set.')
 
     args = parser.parse_args()
-    test_01(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm,
-            nues=args.nues,
-            until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval,
-            experiment_name=args.experiment_name, target_power_dBm=args.target_power_dBm)
+    main(seed=args.seed, subbands=args.subbands, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm,
+         nues=args.nues,
+         until=args.until, sim_args_dict=args.__dict__, logging_interval=args.logging_interval,
+         experiment_name=args.experiment_name, target_power_dBm=args.target_power_dBm)
