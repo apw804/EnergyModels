@@ -731,7 +731,7 @@ if __name__ == '__main__':  # a simple self-test
     parser.add_argument('-until', type=float, default=2.0, help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
-    parser.add_argument('-experiment_name', type=str, default='exp02',
+    parser.add_argument('-experiment_name', type=str, default='Test0x',
                         help='name of a specific experiment to influence the output log names.')
     parser.add_argument('-target_power_dBm', type=float, default=49.0,
                         help='the target power to reach from the initial power set.')
