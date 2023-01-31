@@ -422,10 +422,6 @@ class UeLogger(Logger):
         required_serving_cell_rsrp_dBm = from_dB(min_sinr_dB) * interference
         return required_serving_cell_rsrp_dBm
 
-
-
-
-
     def get_ue_data(s):
         data = {}
         ues = set(s.sim.UEs)
