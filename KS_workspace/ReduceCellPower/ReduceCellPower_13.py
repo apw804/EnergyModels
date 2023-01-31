@@ -36,6 +36,7 @@
 # FIXME - need a better way to output tables for different seed values & power levels.
 # Hook to set the centre frequency of the UMa pathloss mode when changing the Simulation centre frequency.
 # from os import devnull
+## Created for experimental purposes - need to check why Cell_ids are constantly incrementing
 
 
 import argparse
@@ -45,6 +46,7 @@ import os
 import sys
 from contextlib import contextmanager, redirect_stderr
 from dataclasses import dataclass
+from importlib import reload
 from pathlib import Path
 from sys import stdout
 from time import strftime, localtime
@@ -710,14 +712,6 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
     # plt.scatter(x=ue_xyz[0], y=ue_xyz[1], s=1.0)
     fig_timestamp(fig=hexgrid_plot, author=author)
 
-    # Suppress stderr
-    @contextmanager
-    def suppress_stderr():
-        """A context manager that redirects stdout and stderr to devnull"""
-        with open(os.devnull, 'w') as fnull:
-            with redirect_stderr(fnull) as err:  # Could add this in --> "redirect_stdout(fnull) as out:"
-                yield (err)
-
     # Run the simulation
     sim.run(until=until)
 
@@ -741,6 +735,7 @@ if __name__ == '__main__':  # a simple self-test
                         help='name of a specific experiment to influence the output log names.')
     parser.add_argument('-target_power_dBm', type=float, default=49.0,
                         help='the target power to reach from the initial power set.')
+
 
     args = parser.parse_args()
     main(seed=args.seed, subbands=args.subbands,
