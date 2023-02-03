@@ -1,0 +1,1 @@
+# Proportion of indoor users and modelling assumptions

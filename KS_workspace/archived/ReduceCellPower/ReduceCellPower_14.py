@@ -54,7 +54,8 @@ import pandas as pd
 from AIMM_simulator import Cell, Sim, from_dB, to_dB, Logger, np_array_to_str, Scenario, UMa_pathloss, SINR90pc
 from hexalattice.hexalattice import *
 
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(stream=sys.stdout, level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 INFO_LOG = True
 DEBUG_LOG = False
 
@@ -126,7 +127,8 @@ class CellEnergyModel:
             logging.debug("Cell[%s] type set to %s.", cell.i, s.cell_type)
 
             s.params = MacroCellParameters()
-            logging.debug("Cell[%s] params set to %s.", cell.i, s.params.__class__.__name__)
+            logging.debug("Cell[%s] params set to %s.",
+                          cell.i, s.params.__class__.__name__)
 
         else:
             logging.debug("Cell[%s] transmit power < 30 dBm.", s.cell.i)
@@ -135,24 +137,29 @@ class CellEnergyModel:
             logging.debug("Cell[%s] type set to %s.", s.cell.i, s.cell_type)
 
             s.params = SmallCellParameters()
-            logging.debug("Cell[%s] params set to %s.", s.cell.i, s.params.__class__.__name__)
+            logging.debug("Cell[%s] params set to %s.",
+                          s.cell.i, s.params.__class__.__name__)
 
         # List of params to store
         s.CELL_POWER_OUT_DBM_MAX = s.params.p_max_dbm
-        logging.debug("Cell[%s] P_out_Cell_max_dBm: %s.", s.cell.i, s.CELL_POWER_OUT_DBM_MAX)
+        logging.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
+                      s.cell.i, s.CELL_POWER_OUT_DBM_MAX)
 
-        s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = s.params.power_static_watts / 1000  # baseline energy use
+        s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = s.params.power_static_watts / \
+            1000  # baseline energy use
         logging.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", s.cell.i,
                       s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
 
-        s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = s.trx_chain_power_dynamic_kW()  # The load based power consumption
+        # The load based power consumption
+        s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = s.trx_chain_power_dynamic_kW()
         logging.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", s.cell.i,
                       s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
 
         # Calculate the starting cell power
         s.cell_power_kW = s.params.sectors * s.params.antennas * (
-                s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        logging.debug("Starting power consumption for Cell[%s] (kW): %s", s.cell.i, s.cell_power_kW)
+            s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
+        logging.debug(
+            "Starting power consumption for Cell[%s] (kW): %s", s.cell.i, s.cell_power_kW)
 
         # END of INIT
 
@@ -185,7 +192,8 @@ class CellEnergyModel:
         p_bb_watts = s.params.power_baseband_watts
 
         # Calculate the Power Amplifier power consumption in watts
-        p_pa_watts = trx_p_out_watts / (s.params.eta_pa * from_dB(1 - s.params.loss_feed_db))
+        p_pa_watts = trx_p_out_watts / \
+            (s.params.eta_pa * from_dB(1 - s.params.loss_feed_db))
 
         # Calculate the value of `P_ue_plus_C_watts` given the number of UEs multiplex by the base station
         if s.cell.get_nattached() == 0:
@@ -199,7 +207,8 @@ class CellEnergyModel:
         p_consumption_watts = p_pa_watts + p_rf_watts + p_bb_watts
 
         # Calculate losses (ratio)
-        p_losses_ratio = (1 - s.params.loss_dc) * (1 - s.params.loss_mains) * (1 - s.params.loss_cool)
+        p_losses_ratio = (1 - s.params.loss_dc) * \
+            (1 - s.params.loss_mains) * (1 - s.params.loss_cool)
 
         # Get the power output per TRX chain (watts)
         p_out_TRX_chain_watts = p_consumption_watts / p_losses_ratio
@@ -215,16 +224,19 @@ class CellEnergyModel:
     def update_cell_power_kW(s):
         # First update the cell power
         s.cell_power_kW = s.params.sectors * s.params.antennas * (
-                s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + s.trx_chain_power_dynamic_kW())
-        logging.debug('Cell[%s] power consumption has been updated to: %s', s.cell.i, s.cell_power_kW)
+            s.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + s.trx_chain_power_dynamic_kW())
+        logging.debug(
+            'Cell[%s] power consumption has been updated to: %s', s.cell.i, s.cell_power_kW)
 
     def get_cell_power_kW(s, time):
         if time == 0:
-            logging.debug('Cell[%s] power consumption at t=0 is %s', s.cell.i, s.cell_power_kW)
+            logging.debug(
+                'Cell[%s] power consumption at t=0 is %s', s.cell.i, s.cell_power_kW)
             return s.cell_power_kW
         else:
             s.update_cell_power_kW()
-            logging.debug('Cell[%s] power consumption at t=%s is %s', s.cell.i, time, s.cell_power_kW)
+            logging.debug(
+                'Cell[%s] power consumption at t=%s is %s', s.cell.i, time, s.cell_power_kW)
             return s.cell_power_kW
 
     def f_callback(s, x, **kwargs):
@@ -232,8 +244,10 @@ class CellEnergyModel:
             if x.i == s.cell_id:
                 s.update_cell_power_kW()
             else:
-                logging.warning('Cell[%s] is trying to update the Cell[%s] energy model.', x.i, s.cell_id)
-                raise ValueError('Cells can only update their own energy model instances! Check the cell_id.')
+                logging.warning(
+                    'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, s.cell_id)
+                raise ValueError(
+                    'Cells can only update their own energy model instances! Check the cell_id.')
 
 
 # End class Energy
@@ -267,9 +281,11 @@ class SimLogger(Logger):
     @staticmethod
     def log_folder(experiment_name):
         script_parent_dir = Path(__file__).resolve().parents[1]
-        logging_path = str(script_parent_dir) + '/logfiles/' + str(Path(__file__).stem)
+        logging_path = str(script_parent_dir) + \
+            '/logfiles/' + str(Path(__file__).stem)
         if experiment_name is not None:
-            today_folder = Path(logging_path + '/' + SimLogger.date_str() + '/' + experiment_name)
+            today_folder = Path(logging_path + '/' +
+                                SimLogger.date_str() + '/' + experiment_name)
         else:
             today_folder = Path(logging_path + '/' + SimLogger.date_str())
         today_folder.mkdir(parents=True, exist_ok=True)
@@ -290,8 +306,10 @@ class SimLogger(Logger):
         if logtype_ is not None:
             options = get_args(cls._LOGTYPES)
             assert logtype_ in options, f"'{logtype_}' is not in {options}"
-            logfile_name = experiment_suffix + '_' + logtype_ + 'Log' + '_' + cls.time_str()
-            filepath = SimLogger.log_folder(experiment_name) + '/' + logfile_name
+            logfile_name = experiment_suffix + '_' + \
+                logtype_ + 'Log' + '_' + cls.time_str()
+            filepath = SimLogger.log_folder(
+                experiment_name) + '/' + logfile_name
             if logtype_ == "Config":
                 filepath = filepath + ".json"
                 with open(filepath, 'w') as f:
@@ -303,7 +321,8 @@ class SimLogger(Logger):
                           float_format='%g')
             logging.debug('Logfile written to %s', filepath)
         else:
-            raise Exception(f"A logfile type MUST be specified. E.g. {get_args(cls._LOGTYPES)}")
+            raise Exception(
+                f"A logfile type MUST be specified. E.g. {get_args(cls._LOGTYPES)}")
 
     def finalize(s):
         # Write the args used for this experiment to json for reproducing
@@ -325,7 +344,8 @@ class CellLogger(Logger):
         s.until: float = until
         s.seed = seed
         s.cell_dataframe = None  # Create empty placeholder for later pd.DataFrame
-        super().__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        super().__init__(sim, func, header, f,
+                         logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
         s.f = open(os.devnull, 'w')
 
@@ -395,13 +415,15 @@ class UeLogger(Logger):
         s.seed = seed
         s.until: float = until
         s.ue_dataframe = None  # Create empty placeholder for later pd.DataFrame
-        super(UeLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        super(UeLogger, s).__init__(sim, func, header, f,
+                                    logging_interval, np_array_to_str=np_array_to_str)
         s.sim_args = sim_args
 
     @staticmethod
     @lru_cache(maxsize=None)
     def get_interference(ue):
-        neighbour_interference = ue.serving_cell.get_rsrp(ue.i) / from_dB(ue.sinr_dB)
+        neighbour_interference = ue.serving_cell.get_rsrp(
+            ue.i) / from_dB(ue.sinr_dB)
         return neighbour_interference[0]
 
     @staticmethod
@@ -429,21 +451,30 @@ class UeLogger(Logger):
         data["time"] = s.sim.env.now
         data["ue_id"] = [ue.i for ue in ues]
         data["ue_serving_cell_id"] = [ue.serving_cell.i for ue in ues]
-        data["ue_serving_cell_power_dBm"] = [ue.serving_cell.power_dBm for ue in ues]
+        data["ue_serving_cell_power_dBm"] = [
+            ue.serving_cell.power_dBm for ue in ues]
         data["ue_xyz"] = [str(ue.xyz).strip('[] ') for ue in ues]
-        data["ue_distance_to_cell"] = [s.get_distance_serving_cell(ue) for ue in ues]
+        data["ue_distance_to_cell"] = [
+            s.get_distance_serving_cell(ue) for ue in ues]
         data["ue_reporting_interval"] = [ue.reporting_interval for ue in ues]
-        data["ue_cqi"] = [ue.serving_cell.get_UE_CQI(ue.i).item() for ue in ues]
-        data["background_thermal_noise_dBm"] = [ue.noise_power_dBm for ue in ues]
+        data["ue_cqi"] = [ue.serving_cell.get_UE_CQI(
+            ue.i).item() for ue in ues]
+        data["background_thermal_noise_dBm"] = [
+            ue.noise_power_dBm for ue in ues]
         data["pathloss_model"] = [ue.pathloss.__class__.__name__ for ue in ues]
-        data["pathloss_dBm"] = [ue.pathloss(ue.serving_cell.xyz, ue.xyz) for ue in ues]
-        data["ue_neighbouring_cell_interference_dBm"] = [s.get_interference(ue) for ue in ues]
+        data["pathloss_dBm"] = [ue.pathloss(
+            ue.serving_cell.xyz, ue.xyz) for ue in ues]
+        data["ue_neighbouring_cell_interference_dBm"] = [
+            s.get_interference(ue) for ue in ues]
         data["ue_sinr_dB"] = [ue.sinr_dB[0] for ue in ues]
         data["ue_required_sinr"] = [CQI_to_SINR90pc_min_dB(ue) for ue in ues]
-        data["ue_serving_cell_rsrp"] = [ue.serving_cell.get_rsrp(ue.i) for ue in ues]
+        data["ue_serving_cell_rsrp"] = [
+            ue.serving_cell.get_rsrp(ue.i) for ue in ues]
         data["ue_required_rsrp"] = [s.required_rsrp_dBm(ue) for ue in ues]
-        data["excess_rsrp"] = np.subtract(data["ue_serving_cell_rsrp"], data["ue_required_rsrp"], dtype=list)
-        data["ue_pdsch_tput_Mbps"] = [ue.serving_cell.get_UE_throughput(ue.i) for ue in ues]
+        data["excess_rsrp"] = np.subtract(
+            data["ue_serving_cell_rsrp"], data["ue_required_rsrp"], dtype=list)
+        data["ue_pdsch_tput_Mbps"] = [
+            ue.serving_cell.get_UE_throughput(ue.i) for ue in ues]
 
         return data
 
@@ -495,7 +526,8 @@ class EnergyLogger(Logger):
         s.cell_energy_models = cell_energy_models
         s.until: float = until
         s.energy_dataframe = None  # Placeholder for later pd.DataFrame
-        super(EnergyLogger, s).__init__(sim, func, header, f, logging_interval, np_array_to_str=np_array_to_str)
+        super(EnergyLogger, s).__init__(sim, func, header, f,
+                                        logging_interval, np_array_to_str=np_array_to_str)
         s.f = open(os.devnull, 'w')
 
     def get_energy_data(s):
@@ -640,12 +672,16 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0):
     areaTotal = np.pi * sim_radius ** 2  # area of disk
 
     # Point process parameters
-    lambda0 = expected_pts / areaTotal  # intensity (ie mean density) of the Poisson process
+    # intensity (ie mean density) of the Poisson process
+    lambda0 = expected_pts / areaTotal
 
     # Simulate Poisson point process
-    numbPoints = sim_rng.poisson(lambda0 * areaTotal)  # Poisson number of points
-    theta = 2 * np.pi * sim_rng.uniform(0, 1, numbPoints)  # angular coordinates
-    rho = sim_radius * np.sqrt(sim_rng.uniform(0, 1, numbPoints))  # radial coordinates
+    # Poisson number of points
+    numbPoints = sim_rng.poisson(lambda0 * areaTotal)
+    # angular coordinates
+    theta = 2 * np.pi * sim_rng.uniform(0, 1, numbPoints)
+    # radial coordinates
+    rho = sim_radius * np.sqrt(sim_rng.uniform(0, 1, numbPoints))
 
     # Convert from polar to Cartesian coordinates
     xx = rho * np.cos(theta)
@@ -675,11 +711,13 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(origin, sim_radius, fill=False, linestyle='--', color='r')
+    circle_dashed = plt.Circle(
+        origin, sim_radius, fill=False, linestyle='--', color='r')
 
     ax.add_patch(circle_dashed)
     ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    ax_scaling = 3 * isd + 500  # Factor to set the x,y-axis limits relative to the isd value.
+    # Factor to set the x,y-axis limits relative to the isd value.
+    ax_scaling = 3 * isd + 500
     ax.set_xlim([-ax_scaling, ax_scaling])
     ax.set_ylim([-ax_scaling, ax_scaling])
     ax.set_aspect('equal')
@@ -708,11 +746,13 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
     # Define the radio_state
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
-    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
+    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(
+        isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         x, y = centre
         z = 25.0
-        sim.make_cell(interval=until * 1e-2, xyz=[x, y, z], n_subbands=subbands, power_dBm=power_dBm, bw_MHz=ch_bw_MHz)
+        sim.make_cell(interval=until * 1e-2,
+                      xyz=[x, y, z], n_subbands=subbands, power_dBm=power_dBm, bw_MHz=ch_bw_MHz)
 
     # Create a dictionary of cell-specific energy models
     cell_energy_models_dict = {}
@@ -724,7 +764,8 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
     UMa = UMa_pathloss(fc_GHz=fc_GHz, h_UT=h_UT, h_BS=h_BS, LOS=True)
 
     # Generate UEs using PPP and add to simulation
-    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
+    ue_ppp = generate_ppp_points(
+        sim=sim, expected_pts=nues, sim_radius=sim_radius)
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, 1.5
@@ -733,7 +774,8 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
                     pathloss_model=UMa).attach_to_strongest_cell_simple_pathloss_model()
 
     # Set experiment suffix
-    experiment_suffix = str(f"s{seed}_t{until:.0f}_nues{nues:.0f}_dBm{power_dBm:.0f}")
+    experiment_suffix = str(
+        f"s{seed}_t{until:.0f}_nues{nues:.0f}_dBm{power_dBm:.0f}")
 
     # Set up loggers and add to simulation
     sim_logger = SimLogger(sim=sim, seed=seed, until=until, sim_args=sim_args_dict, experiment_name=experiment_name,
@@ -747,10 +789,12 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
     ue_logger = UeLogger(sim=sim, until=until, seed=seed, logging_interval=logging_interval,
                          experiment_name=experiment_name,
                          experiment_suffix=experiment_suffix)
-    sim.add_loggers([sim_logger, energy_logger, cell_logger, ue_logger])  # std_out & dataframe
+    sim.add_loggers([sim_logger, energy_logger, cell_logger,
+                    ue_logger])  # std_out & dataframe
 
     # Add the Scenario object to the simulation
-    scenario = QmScenarioReduceCellPower(sim=sim, target_power_dBm=target_power_dBm)
+    scenario = QmScenarioReduceCellPower(
+        sim=sim, target_power_dBm=target_power_dBm)
     sim.add_scenario(scenario)
 
     # Plot setup if desired
@@ -764,19 +808,27 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
 if __name__ == '__main__':  # a simple self-test
     np.set_printoptions(precision=4, linewidth=200)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-seeds', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-seeds', type=int, default=0,
+                        help='seed value for random number generator')
+    parser.add_argument('-isd', type=float, default=500.0,
+                        help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=1000.0,
+                        help='Simulation bounds radius in metres')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
-    parser.add_argument('-subbands', type=int, default=1, help='number of subbands')
-    parser.add_argument('-fc_GHz', type=float, default=3.40, help='Centre frequency in GHz')
-    parser.add_argument('-h_UT', type=float, default=1.5, help='Height of User Terminal (=UE) in metres (default=1.5)')
-    parser.add_argument('-h_BS', type=float, default=25.0, help='Height of Base Station in metres (default=25)')
+    parser.add_argument('-subbands', type=int, default=1,
+                        help='number of subbands')
+    parser.add_argument('-fc_GHz', type=float, default=3.40,
+                        help='Centre frequency in GHz')
+    parser.add_argument('-h_UT', type=float, default=1.5,
+                        help='Height of User Terminal (=UE) in metres (default=1.5)')
+    parser.add_argument('-h_BS', type=float, default=25.0,
+                        help='Height of Base Station in metres (default=25)')
     parser.add_argument('-power_dBm', type=float, default=43.0,
                         help='Starting transmit power of the cell in dBm (default=43.0)')
     parser.add_argument('-channel_bw_MHz', type=float, default=10.0,
                         help='Cell channel bandwidth in MHz (default=10.0)')
-    parser.add_argument('-until', type=float, default=21.0, help='simulation time')
+    parser.add_argument('-until', type=float, default=21.0,
+                        help='simulation time')
     parser.add_argument('-logging_interval', type=float, default=1.0,
                         help='Sampling interval (seconds) for simulation data capture + UEs reports sending.')
     parser.add_argument('-experiment_name', type=str, default='Test01',
@@ -787,7 +839,6 @@ if __name__ == '__main__':  # a simple self-test
     # Create the args namespace
     args = parser.parse_args()
 
-
     def write_args_to_json(outfile, parse_args_obj):
         if not outfile.endswith('.json'):
             outfile += '.json'
@@ -796,7 +847,6 @@ if __name__ == '__main__':  # a simple self-test
         # write to json file
         with open(outfile, 'w') as f:
             json.dump(args, f, indent=4)
-
 
     main(seed=args.seeds, subbands=args.subbands,
          isd=args.isd, sim_radius=args.sim_radius,

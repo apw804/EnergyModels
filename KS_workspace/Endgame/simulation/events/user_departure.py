@@ -1,0 +1,1 @@
+# Event for when an existing user disconnects from the network
