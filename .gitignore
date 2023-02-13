@@ -4,3 +4,4 @@ Icon*
 .tsv
 .json
 /archive/logfiles
+*.tsv
