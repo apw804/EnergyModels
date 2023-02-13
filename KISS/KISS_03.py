@@ -1,6 +1,6 @@
 # KISS (Keep It Simple Stupid!) v3
 # Now gets the dataframe output as floats instead of np.ndarrays
-# FIXME - add the MCS
+
 
 import argparse, json
 from pathlib import Path
@@ -46,7 +46,7 @@ class MyLogger(Logger):
             # Update the mcs and nPRB of the radio_state dataclass
             current_radio_state = NR_5G_standard_functions.Radio_state
             current_radio_state.MCS = mcs
-            current_radio_state.nPRB = 24
+            current_radio_state.nPRB = 24   # FIXME - will need to come from lookup tables
 
             # Get value for _DMRS_RE?
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':  # run the main script
     parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
     parser.add_argument('-power_dBm', type=float, default=10.0, help='Cell transmit power in dBm.')
-    parser.add_argument('-nues', type=int, default=100, help='number of UEs')
+    parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=1.0,  help='simulation time')
 
     # Create the args namespace
