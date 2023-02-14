@@ -253,6 +253,12 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
         z = 25.0
         sim.make_cell(interval=until * 1e-2,
                       xyz=[x, y, z], power_dBm=power_dBm)
+        
+    for cell in sim.cells:
+        cell_id = cell.i
+        cell_x = cell.xyz[0]
+        cell_y = cell.xyz[1]
+        plt.annotate(cell_id, (cell_x, cell_y))
 
     # Generate UEs using PPP and add to simulation
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
