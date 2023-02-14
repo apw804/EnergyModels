@@ -253,7 +253,8 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
         z = 25.0
         sim.make_cell(interval=until * 1e-2,
                       xyz=[x, y, z], power_dBm=power_dBm)
-        
+
+    # Quick and simple labelling of cell_ids    
     for cell in sim.cells:
         cell_id = cell.i
         cell_x = cell.xyz[0]
