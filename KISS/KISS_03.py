@@ -1,6 +1,5 @@
 # KISS (Keep It Simple Stupid!) v3
 # Now gets the dataframe output as floats instead of np.ndarrays
-# FIXME - need to get the diagram to show the cell number
 # FIXME - need to finish integrating the NR_5G_standard... max cell throughput
 
 
