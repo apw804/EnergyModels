@@ -258,7 +258,8 @@ def plot_ues(sim, ue_ids: list):
     ue_xy_list = [ue.xyz[:2] for ue in ue_objs_list]
     plt.scatter(x=ue_x_list, y=ue_y_list, color='red', s=2.0)
     for i in ue_ids:
-        plt.annotate(text=str(i), xy=ue_xy_list[i], xytext=(3,-2), textcoords='offset points', fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
+        plt.annotate(text=str(i), xy=ue_xy_list[i], xytext=(3,-2), textcoords='offset points',
+        fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
 
 def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
     # Create a simulator object
