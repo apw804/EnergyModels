@@ -252,13 +252,13 @@ def write_args_to_json(outfile, parse_args_obj):
                 json.dump(args_dict, f, indent=4)
 
 def plot_ues(sim, ue_ids: list):
+    ue_objs_list = [sim.UEs[i] for i in ue_ids]
+    ue_x_list = [ue.xyz[0] for ue in ue_objs_list]
+    ue_y_list = [ue.xyz[1] for ue in ue_objs_list]
+    ue_xy_list = [ue.xyz[:2] for ue in ue_objs_list]
+    plt.scatter(x=ue_x_list, y=ue_y_list, color='red', s=2.0)
     for i in ue_ids:
-        ue = sim.UEs[i]
-        ue_x = ue.xyz[0]
-        ue_y = ue.xyz[1]
-        label_pos = ue.xyz[:2] + 10
-        plt.scatter(x=ue_x, y=ue_y, s=2.0)
-        plt.annotate(text=str(i), xy=ue.xyz[:2], xytext=label_pos, fontsize=8)
+        plt.annotate(text=str(i), xy=ue_xy_list[i], xytext=(3,-2), textcoords='offset points', fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
 
 def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
     # Create a simulator object
@@ -277,7 +277,7 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
         cell_id = cell.i
         cell_x = cell.xyz[0]
         cell_y = cell.xyz[1]
-        plt.annotate(cell_id, (cell_x, cell_y))
+        plt.annotate(cell_id, (cell_x, cell_y), color='blue', alpha=0.3)
 
     # Generate UEs using PPP and add to simulation
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
