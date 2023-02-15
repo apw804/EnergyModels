@@ -257,9 +257,8 @@ def plot_ues(sim, ue_ids: list):
         ue_x = ue.xyz[0]
         ue_y = ue.xyz[1]
         label_pos = ue.xyz[:2] + 10
-        plt.scatter(x=ue_x, y=ue_y, s=2.0)  # FIXME - so that a list of ue positions get plotted on the same axes.
+        plt.scatter(x=ue_x, y=ue_y, s=2.0)
         plt.annotate(text=str(i), xy=ue.xyz[:2], xytext=label_pos, fontsize=8)
-        plt.show()
 
 def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
     # Create a simulator object
@@ -294,9 +293,10 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
     # Add the logger to the simulator
     sim.add_logger(MyLogger(sim, logging_interval=5))
 
-    # Plot setup if desired (uncomment to activate)
+    # Plot UEs if desired (uncomment to activate)
     sim_ue_ids = [ue.i for ue in sim.UEs]
-    plot_ues(sim=sim, ue_ids=[10])
+    plot_ues(sim=sim, ue_ids=sim_ue_ids)
+    plt.show()
     # fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
 
     # Run simulator
