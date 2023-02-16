@@ -162,6 +162,9 @@ class MyLogger(Logger):
     def loop(self):
         """Main loop for logger."""
         while True:
+            # Don't capture t=0
+            if self.sim.env.now == 0:
+                yield self.sim.wait(self.logging_interval)
             self.run_routine()
             print(f'logger time={self.sim.env.now}')
             yield self.sim.wait(self.logging_interval)
