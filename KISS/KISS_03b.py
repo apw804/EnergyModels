@@ -30,22 +30,33 @@ class AMFv1(MME):
     Adds to the basic AIMM MME and rebrands to the 5G nomenclature AMF(Access and Mobility Management Function).
     """
 
-    def __init__(self, sim, cqi_limit:int = 1):
+    def __init__(self, sim, cqi_limit:int = 2):
         self.cqi_limit = cqi_limit
         super().__init__(self,sim,interval=0.1,strategy='best_rsrp_cell',anti_pingpong=0.0,verbosity=2)
 
-    def check_cqi(self, threshold:int):
-        threshold = self.cqi_limit
+    def check_low_cqi(self, threshold):
+        """
+        Checks if the UE CQI value is below a threshold. If true, UE is detached from serving cell.
+        """
+        for ue in self.sim.UEs:
+            if ue.cqi < threshold:
+                ue.detach(quiet=False)
     
-    def loop(s):
+  
+
+    def best_sinr_cell():
+           # TODO - write function to replace the 'best_rsrp_cell' strategy.
+        pass
+
+    def loop(self):
         '''
         Main loop of AMF.
         '''
-        yield s.sim.env.timeout(0.5*s.interval) # stagger the intervals
-        print(f'MME started at {float(s.sim.env.now):.2f}, using strategy="{s.strategy}" and anti_pingpong={s.anti_pingpong:.0f}.',file=stderr)
+        print(f'MME started at {float(self.sim.env.now):.2f}, using strategy="{self.strategy}" and anti_pingpong={self.anti_pingpong:.0f}.',file=stderr)
         while True:
-            s.do_handovers()
-            yield s.sim.env.timeout(s.interval)
+            self.do_handovers()
+            self.check_low_cqi(threshold=self.cqi_limit)
+            yield self.sim.env.timeout(self.interval)
 
     
 
