@@ -29,10 +29,12 @@ class CellOff(Scenario):
     Turns off cell(s) after a specified delay time (if provided), relative to t=0.
     """
 
-    def __init__(self,sim,func=None,interval=0.1,verbosity=0, cells=None, delay=None):
+    def __init__(self,sim,interval=0.1, cells=None, delay=None):
         self.kill_cells = cells
         self.delay_time = delay
-        super(CellOff, self).__init__(self,sim,func=None,interval=1.0,verbosity=0)
+        self.sim = sim
+        self.interval = interval
+
 
     def loop(self):
         while True:
@@ -126,7 +128,7 @@ class MyLogger(Logger):
             self.dataframe = pd.concat(
                 [self.dataframe, new_data_df], verify_integrity=True, ignore_index=ignore_index)
 
-    def run_routine(self, ignore_index=False):
+    def run_routine(self, ignore_index=True):
         col_labels, new_data = self.get_data()
         self.add_to_dataframe(col_labels=col_labels,
                               new_data=new_data, ignore_index=ignore_index)
@@ -292,13 +294,19 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, author=None):
         ue.noise_power_dBm=-118.0
 
     # Add the logger to the simulator
+
     sim.add_logger(MyLogger(sim, logging_interval=5))
+
+    # Add scenario to simulation
+    cell_off_scenario = CellOff(sim, cells=[9], delay=1)
+    sim.add_scenario(scenario=cell_off_scenario)
 
     # Plot UEs if desired (uncomment to activate)
     sim_ue_ids = [ue.i for ue in sim.UEs]
     plot_ues(sim=sim, ue_ids=sim_ue_ids)
-    plt.show()
-    # fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
+    fig_timestamp(fig=hexgrid_plot, author='Kishan Sthankiya')
+    fig_outfile_path = Path(logfile).with_suffix('.png')
+    plt.savefig(fig_outfile_path)
 
     # Run simulator
     sim.run(until=until)
@@ -309,11 +317,11 @@ if __name__ == '__main__':  # run the main script
     # Create cmd line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-seeds', type=int, default=0, help='seed value for random number generator')
-    parser.add_argument('-isd', type=float, default=500.0, help='Base station inter-site distance in metres')
-    parser.add_argument('-sim_radius', type=float, default=1000.0, help='Simulation bounds radius in metres')
+    parser.add_argument('-isd', type=float, default=1500.0, help='Base station inter-site distance in metres')
+    parser.add_argument('-sim_radius', type=float, default=3000.0, help='Simulation bounds radius in metres')
     parser.add_argument('-power_dBm', type=float, default=10.0, help='Cell transmit power in dBm.')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
-    parser.add_argument('-until', type=float, default=1.0,  help='simulation time')
+    parser.add_argument('-until', type=float, default=2.0,  help='simulation time')
 
     # Create the args namespace
     args = parser.parse_args()
