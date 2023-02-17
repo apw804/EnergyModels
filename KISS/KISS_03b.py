@@ -12,7 +12,7 @@ from datetime import datetime
 from time import localtime, strftime
 from types import NoneType
 import numpy as np
-from AIMM_simulator import Sim, Logger, np_array_to_str, to_dB, NR_5G_standard_functions, Scenario, MME
+from AIMM_simulator import Sim, Logger, np_array_to_str, to_dB, NR_5G_standard_functions, Scenario, MME, UMa_pathloss
 from hexalattice.hexalattice import *
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -193,6 +193,9 @@ class MyLogger(Logger):
         # Create a copy of the final DataFrame
         df = self.dataframe.copy()
 
+        # Sort the data by time, UE_id then cell_id
+        df1 = df.sort_values(['time','ue_id', 'serving_cell_id'], ascending=[True, True, True])
+
         # Print df to screen
         print(df)
 
@@ -312,12 +315,16 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
     ue_reporting_interval = base_interval
     logging_interval = base_interval
 
+    # Create instance of UMa-NLOS pathloss model
+    pl_uma_nlos = UMa_pathloss(LOS=False)
+
     # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
     for centre in sim_hexgrid_centres[:]:
         x, y = centre
         z = 25.0
-        sim.make_cell(interval=base_interval*10,
+        # Create the cell
+        sim.make_cell(interval=base_interval,
                       xyz=[x, y, z], power_dBm=power_dBm)
 
     # Quick and simple labelling of cell_ids    
@@ -327,12 +334,12 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
         cell_y = cell.xyz[1]
         plt.annotate(cell_id, (cell_x, cell_y), color='blue', alpha=0.3)
 
-    # Generate UEs using PPP and add to simulation
+    # Generate UE positions using PPP
     ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, 1.5
-        sim.make_UE(xyz=ue_xyz, reporting_interval=ue_reporting_interval).attach_to_strongest_cell_simple_pathloss_model()
+        sim.make_UE(xyz=ue_xyz, reporting_interval=ue_reporting_interval, pathloss_model=pl_uma_nlos).attach_to_strongest_cell_simple_pathloss_model()
 
     # Change the noise_power_dBm for all UEs to -118dBm
     for ue in sim.UEs:
@@ -342,7 +349,7 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
     sim.add_logger(MyLogger(sim, logging_interval=logging_interval))
 
     # Add scenario to simulation
-    change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=21.0, interval=base_interval)
+    change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=1.0, interval=base_interval)
     sim.add_scenario(scenario=change_outer_ring_power)
 
     # Add MME for handovers
@@ -367,7 +374,7 @@ if __name__ == '__main__':  # run the main script
     parser.add_argument('-seeds', type=int, default=0, help='seed value for random number generator')
     parser.add_argument('-isd', type=float, default=1500.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=3000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-power_dBm', type=float, default=30.0, help='Cell transmit power in dBm.')
+    parser.add_argument('-power_dBm', type=float, default=1.0, help='Cell transmit power in dBm.')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=2.0,  help='simulation time')
     parser.add_argument('-base_interval', type=float, default=1.0,  help='base interval for simulation steps')
