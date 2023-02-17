@@ -307,7 +307,7 @@ def plot_ues(sim, ue_ids: list):
         plt.annotate(text=str(i), xy=ue_xy_list[i], xytext=(3,-2), textcoords='offset points',
         fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
 
-def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=None):
+def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, new_power_dBm, author=None):
     # Create a simulator object
     sim = Sim(rng_seed=seed)
 
@@ -324,7 +324,7 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
         x, y = centre
         z = 25.0
         # Create the cell
-        sim.make_cell(interval=base_interval,
+        sim.make_cell(interval=base_interval*0.5,
                       xyz=[x, y, z], power_dBm=power_dBm)
 
     # Quick and simple labelling of cell_ids    
@@ -349,7 +349,7 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
     sim.add_logger(MyLogger(sim, logging_interval=logging_interval))
 
     # Add scenario to simulation
-    change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=1.0, interval=base_interval)
+    change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=new_power_dBm, interval=base_interval)
     sim.add_scenario(scenario=change_outer_ring_power)
 
     # Add MME for handovers
@@ -374,7 +374,8 @@ if __name__ == '__main__':  # run the main script
     parser.add_argument('-seeds', type=int, default=0, help='seed value for random number generator')
     parser.add_argument('-isd', type=float, default=1500.0, help='Base station inter-site distance in metres')
     parser.add_argument('-sim_radius', type=float, default=3000.0, help='Simulation bounds radius in metres')
-    parser.add_argument('-power_dBm', type=float, default=1.0, help='Cell transmit power in dBm.')
+    parser.add_argument('-power_dBm', type=float, default=30.0, help='Cell transmit power in dBm.')
+    parser.add_argument('-new_power_dBm', type=float, default=21.0, help='Updated cell transmit power in dBm.')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=2.0,  help='simulation time')
     parser.add_argument('-base_interval', type=float, default=1.0,  help='base interval for simulation steps')
@@ -387,5 +388,5 @@ if __name__ == '__main__':  # run the main script
     # write_args_to_json(outfile=outfile, parse_args_obj=args)
 
     # Run the __main__
-    main(seed=args.seeds, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm, nues=args.nues,
+    main(seed=args.seeds, isd=args.isd, sim_radius=args.sim_radius, power_dBm=args.power_dBm, new_power_dBm=args.new_power_dBm, nues=args.nues,
          until=args.until, base_interval=args.base_interval)
