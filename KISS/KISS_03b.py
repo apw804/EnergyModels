@@ -82,6 +82,7 @@ class ChangeCellPower(Scenario):
             if self.sim.env.now > self.delay_time:
                 for i in self.target_cells:
                     self.sim.cells[i].set_power_dBm(self.new_power)
+                    print(f'Set cell[{i}] power to: {self.new_power} at {self.sim.env.now}')
             yield self.sim.wait(self.interval)
 
 class MyLogger(Logger):
@@ -308,8 +309,8 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
     sim = Sim(rng_seed=seed)
 
     # Scale other intervals to base_interval
-    ue_reporting_interval = base_interval * 5
-    logging_interval = base_interval * 2
+    ue_reporting_interval = base_interval
+    logging_interval = base_interval
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
@@ -341,7 +342,7 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, author=No
     sim.add_logger(MyLogger(sim, logging_interval=logging_interval))
 
     # Add scenario to simulation
-    change_outer_ring_power = ChangeCellPower(sim, delay=1.0, new_power=21.0, interval=base_interval*5)
+    change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=21.0, interval=base_interval)
     sim.add_scenario(scenario=change_outer_ring_power)
 
     # Add MME for handovers
@@ -369,7 +370,7 @@ if __name__ == '__main__':  # run the main script
     parser.add_argument('-power_dBm', type=float, default=30.0, help='Cell transmit power in dBm.')
     parser.add_argument('-nues', type=int, default=10, help='number of UEs')
     parser.add_argument('-until', type=float, default=2.0,  help='simulation time')
-    parser.add_argument('-base_interval', type=float, default=0.1,  help='base interval for simulation steps')
+    parser.add_argument('-base_interval', type=float, default=1.0,  help='base interval for simulation steps')
 
     # Create the args namespace
     args = parser.parse_args()
