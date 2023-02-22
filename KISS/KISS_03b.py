@@ -121,33 +121,46 @@ class MyLogger(Logger):
         else:
             return np.nan
 
+    def get_neighbour_cell_rsrp_rank(self, ue_id, neighbour_rank):
+        neighbour_cell_rsrp = []
+        for cell in self.sim.cells:
+            cell_id = cell.i
+            ue_rsrp =  cell.get_RSRP_reports_dict()[ue_id]      # get current UE rsrp from neighbouring cells
+            neighbour_cell_rsrp += [[cell_id, ue_rsrp]]
+        neighbour_cell_rsrp.sort(key=lambda x: x[1], reverse=True)
+        neighbour_cell_rsrp.pop(0)
+        neighbour_id, neighbour_rsrp_dBm = neighbour_cell_rsrp[neighbour_rank]
+        return neighbour_id, neighbour_rsrp_dBm
+
     def get_data(self):
         # Create an empty list to store generated data
         data = []
         # Keep a list of column names to track
         columns = ["time", "serving_cell_id", "ue_id",
-            "distance_to_cell(m)", "throughput(Mb/s)", "sc_power(dBm)","rsrp(dBm)", "noise_power(dBm)", "sinr(dB)", "cqi", "mcs"]
+            "distance_to_cell(m)", "throughput(Mb/s)", "sc_power(dBm)","sc_rsrp(dBm)", "neighbour1_rsrp(dBm)", "neighbour2_rsrp(dBm)", "noise_power(dBm)", "sinr(dB)", "cqi", "mcs"]
         for cell in self.sim.cells:
                for attached_ue_id in cell.attached:
                     UE = self.sim.UEs[attached_ue_id]
                     serving_cell = UE.serving_cell
-                    tm = self.sim.env.now                                       # current time
-                    sc_id = serving_cell.i                                      # current UE serving_cel
-                    sc_xy = serving_cell.get_xyz()[:2]                          # current UE serving_cell xy position
-                    ue_id = UE.i                                                # current UE ID
-                    ue_xy = UE.get_xyz()[:2]                                    # current UE xy position
-                    d2sc = np.linalg.norm(sc_xy - ue_xy)                        # current UE distance to serving_cell
-                    tp = serving_cell.get_UE_throughput(attached_ue_id)         # current UE throughput ('fundamental')
-                    sc_power = serving_cell.get_power_dBm()                     # current UE serving_cell transmit power
-                    rsrp = serving_cell.get_RSRP_reports_dict()[ue_id]          # current UE rsrp from serving_cell
-                    noise = UE.noise_power_dBm                                  # current UE thermal noise
-                    sinr = UE.sinr_dB                                           # current UE sinr from serving_cell
-                    cqi = UE.cqi                                                # current UE cqi from serving_cell
-                    mcs = self.get_cqi_to_mcs(cqi)                              # current UE mcs for serving_cell
-                    # tp_max = self.get_max_5G_throughput(mcs)                  # current UE max throughput
+                    tm = self.sim.env.now                                           # current time
+                    sc_id = serving_cell.i                                          # current UE serving_cel
+                    sc_xy = serving_cell.get_xyz()[:2]                              # current UE serving_cell xy position
+                    ue_id = UE.i                                                    # current UE ID
+                    ue_xy = UE.get_xyz()[:2]                                        # current UE xy position
+                    d2sc = np.linalg.norm(sc_xy - ue_xy)                            # current UE distance to serving_cell
+                    tp = serving_cell.get_UE_throughput(attached_ue_id)             # current UE throughput ('fundamental')
+                    sc_power = serving_cell.get_power_dBm()                         # current UE serving_cell transmit power
+                    sc_rsrp = serving_cell.get_RSRP_reports_dict()[ue_id]           # current UE rsrp from serving_cell
+                    neigh1_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 0)[1]    # current UE neighbouring cell 1 rsrp
+                    neigh2_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 1)[1]    # current UE neighbouring cell 2 rsrp
+                    noise = UE.noise_power_dBm                                      # current UE thermal noise
+                    sinr = UE.sinr_dB                                               # current UE sinr from serving_cell
+                    cqi = UE.cqi                                                    # current UE cqi from serving_cell
+                    mcs = self.get_cqi_to_mcs(cqi)                                  # current UE mcs for serving_cell
+                    # tp_max = self.get_max_5G_throughput(mcs)                      # current UE max throughput
 
                     # Get the above as a list
-                    data_list = [tm, sc_id, ue_id, d2sc, tp, sc_power, rsrp, noise, sinr, cqi, mcs]
+                    data_list = [tm, sc_id, ue_id, d2sc, tp, sc_power, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs]
 
                     # convert ndarrays to str or float
                     for i, j in enumerate(data_list):
@@ -346,7 +359,8 @@ def main(seed, isd, sim_radius, power_dBm, nues, until, base_interval, new_power
         ue.noise_power_dBm=-118.0
 
     # Add the logger to the simulator
-    sim.add_logger(MyLogger(sim, logging_interval=logging_interval))
+    custom_logger = MyLogger(sim, logging_interval=logging_interval)
+    sim.add_logger(custom_logger)
 
     # Add scenario to simulation
     change_outer_ring_power = ChangeCellPower(sim, delay=0, new_power=new_power_dBm, interval=base_interval)
