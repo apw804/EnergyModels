@@ -1,4 +1,4 @@
-# Single cell test / scratchpad
+# Single cell & single UE test template
 
 from AIMM_simulator import Sim, Logger, np_array_to_str, to_dB, NR_5G_standard_functions, Scenario, MME, UMa_pathloss
 from hexalattice.hexalattice import *
