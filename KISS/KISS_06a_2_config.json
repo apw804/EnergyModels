@@ -4,7 +4,7 @@
     "sim_radius": 3000,
     "h_BS": 25,
     "power_dBm": 46,
-    "nues": 24,
+    "nues": 200,
     "h_UT": 1.5,
     "until": 2,
     "base_interval": 1.0,
@@ -35,8 +35,10 @@
     "mme_anti_pingpong": 0.0,
     "mme_verbosity": 0,
     "plot_ues": true,
-    "plot_ues_labels": true,
     "plot_ues_start": 0,
-    "plot_ues_end": 24,
+    "plot_ues_end": 12,
+    "plot_ues_show_labels": true,
+    "plot_ues_show_labels_start": 6,
+    "plot_ues_show_labels_end": null,
     "plot_author": "Kishan Sthankiya"
 }

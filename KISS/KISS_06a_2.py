@@ -134,7 +134,18 @@ class Cellv2(Cell):
         Return the sleep_mode for the Cellv2.
         """
         return self.sleep_mode
+    
 
+    def get_cell_throughput(self):
+        """
+        Returns the throughput of a cell in the current timestep.
+        """
+        cell_throughput = 0
+        for ue_i in self.attached:
+            ue_tp_check = self.get_UE_throughput(ue_i)
+            if ue_tp_check is not None:
+                cell_throughput += ue_tp_check
+        return cell_throughput
     
     def loop(self):
         '''
@@ -153,11 +164,11 @@ class Simv2(Sim):
         self.orphaned_ues = []
         super().__init__(*args, **kwargs)
     
-    def make_cellv2(self, **kwargs):
+    def make_cellv2(self, **cell_kwargs):
             ''' 
             Convenience function: make a new Cellv2 instance and add it to the simulation; parameters as for the Cell class. Return the new Cellv2 instance.).
             '''
-            self.cells.append(Cellv2(self,**kwargs))
+            self.cells.append(Cellv2(self,**cell_kwargs))
             xyz=self.cells[-1].get_xyz()
             self.cell_locations=np.vstack([self.cell_locations,xyz])
             return self.cells[-1]
@@ -252,7 +263,6 @@ class CellEnergyModel:
         Cell instance which this model attaches to.
     interval: float
         Time interval between CellEnergyModel updates.
-
     """
 
     def __init__(self, cell: Cell, interval=1.0):
@@ -570,64 +580,49 @@ class MyLogger(Logger):
         neighbour_id, neighbour_rsrp_dBm = neighbour_cell_rsrp[neighbour_rank]
         return neighbour_id, neighbour_rsrp_dBm
     
-    def get_cell_throughput(self, cell):
-        """
-        Returns the throughput of a cell in the current timestep.
-        """
-        reports = cell.reports
-        throughput_reports = reports["throughput_Mbps"]
-        if len(throughput_reports) == 0:
-            return 0
-        else:
-            # for all attached ues
-            cell_throughput = 0
-            for ue_id in cell.attached:
-                if throughput_reports[ue_id][0] == self.sim.env.now:
-                    cell_throughput += throughput_reports[ue_id][-1]
-            return cell_throughput
-            
-
-
-
+    
+    
     def get_cell_data_attached_UEs(self, cell):
         """
         Returns a list of data for each attached UE in a cell
         """
         data = []
         for attached_ue_id in cell.attached:
-                UE = self.sim.UEs[attached_ue_id]
-                serving_cell = UE.serving_cell
-                cell_energy_model = self.cell_energy_models[serving_cell.i]
-                seed = self.sim.seed
-                tm = self.sim.env.now                                           # current time
-                sc_id = serving_cell.i                                          # current UE serving_cell
-                sc_sleep_mode = serving_cell.get_sleep_mode()                   # current UE serving_cell sleep mode status
-                sc_xy = serving_cell.get_xyz()[:2]                              # current UE serving_cell xy position
-                ue_id = UE.i                                                    # current UE ID
-                ue_xy = UE.get_xyz()[:2]                                        # current UE xy position
-                d2sc = np.linalg.norm(sc_xy - ue_xy)                            # current UE distance to serving_cell
-                ue_tp = serving_cell.get_UE_throughput(attached_ue_id)          # current UE throughput ('fundamental')
-                sc_power = serving_cell.get_power_dBm()                         # current UE serving_cell transmit power
-                sc_rsrp = serving_cell.get_RSRP_reports_dict()[ue_id]           # current UE rsrp from serving_cell
-                neigh1_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 0)[1]    # current UE neighbouring cell 1 rsrp
-                neigh2_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 1)[1]    # current UE neighbouring cell 2 rsrp
-                noise = UE.noise_power_dBm                                      # current UE thermal noise
-                sinr = UE.sinr_dB                                               # current UE sinr from serving_cell
-                cqi = UE.cqi                                                    # current UE cqi from serving_cell
-                mcs = self.get_cqi_to_mcs(cqi)                                  # current UE mcs for serving_cell
-                cell_tp = self.get_cell_throughput(serving_cell)                # current UE serving_cell throughput
-                cell_power_kW = cell_energy_model.get_cell_power_kW(tm)         # current UE serving_cell power consumption
+            UE = self.sim.UEs[attached_ue_id]
+            serving_cell = UE.serving_cell
+            cell_energy_model = self.cell_energy_models[serving_cell.i]
+            seed = self.sim.seed
+            tm = self.sim.env.now                                           # current time
+            sc_id = serving_cell.i                                          # current UE serving_cell
+            sc_sleep_mode = serving_cell.get_sleep_mode()                   # current UE serving_cell sleep mode status
+            sc_xy = serving_cell.get_xyz()[:2]                              # current UE serving_cell xy position
+            ue_id = UE.i                                                    # current UE ID
+            ue_xy = UE.get_xyz()[:2]                                        # current UE xy position
+            d2sc = np.linalg.norm(sc_xy - ue_xy)                            # current UE distance to serving_cell
+            ue_tp = serving_cell.get_UE_throughput(attached_ue_id)          # current UE throughput ('fundamental')
+            sc_power = serving_cell.get_power_dBm()                         # current UE serving_cell transmit power
+            sc_rsrp = serving_cell.get_RSRP_reports_dict()[ue_id]           # current UE rsrp from serving_cell
+            neigh1_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 0)[1]    # current UE neighbouring cell 1 rsrp
+            neigh2_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 1)[1]    # current UE neighbouring cell 2 rsrp
+            noise = UE.noise_power_dBm                                      # current UE thermal noise
+            sinr = UE.sinr_dB                                               # current UE sinr from serving_cell
+            cqi = UE.cqi                                                    # current UE cqi from serving_cell
+            mcs = self.get_cqi_to_mcs(cqi)                                  # current UE mcs for serving_cell
+            cell_tp = serving_cell.get_cell_throughput()                    # current UE serving_cell throughput
+            cell_power_kW = cell_energy_model.get_cell_power_kW(tm)         # current UE serving_cell power consumption
+            cell_ee = (cell_tp * 1e6) / (cell_power_kW * 1e3)               # current UE serving_cell energy efficiency
+            cell_se = (cell_tp * 1e6) / (serving_cell.bw_MHz * 1e6)         # current UE serving_cell spectral efficiency
 
-                # Get the above as a list
-                data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_power_kW]
+            # Get the above as a list
+            data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_tp, cell_power_kW, cell_ee, cell_se]
 
-                # convert ndarrays to str or float
-                for i, j in enumerate(data_list):
-                    if type(j) is np.ndarray:
-                        data_list[i] = float(j)
+            # convert ndarrays to str or float
+            for i, j in enumerate(data_list):
+                if type(j) is np.ndarray:
+                    data_list[i] = float(j)
 
-                # Write above to `data` list
-                data.append(data_list)
+            # Write above to `data` list
+            data.append(data_list)
         return data
     
     def get_cell_data_no_UEs(self, cell):
@@ -639,26 +634,31 @@ class MyLogger(Logger):
         UE = float('nan')
         serving_cell = float('nan')
         cell_energy_model = self.cell_energy_models[cell.i]
-        tm = self.sim.env.now                                           # current time
-        sc_id = cell.i                                          # current cell
-        sc_sleep_mode = cell.get_sleep_mode()                   # current cell sleep mode status
-        sc_xy = cell.get_xyz()[:2]                              # current cell xy position
-        ue_id = float('nan')                                    # UE ID
-        ue_xy = float('nan')                                    # UE xy position
-        d2sc = float('nan')                                     # distance to serving_cell
-        ue_tp = float('nan')                                       # UE throughput ('fundamental')
-        sc_power = cell.get_power_dBm()                         # current UE serving_cell transmit power
-        sc_rsrp = float('nan')          # current UE rsrp from serving_cell
-        neigh1_rsrp = float('nan')    # current UE neighbouring cell 1 rsrp
-        neigh2_rsrp = float('nan')    # current UE neighbouring cell 2 rsrp
-        noise = float('nan')                                      # current UE thermal noise
-        sinr = float('nan')                                               # current UE sinr from serving_cell
-        cqi = float('nan')                                                    # current UE cqi from serving_cell
-        mcs = float('nan')                                  # current UE mcs for serving_cell
-        cell_power_kW = cell_energy_model.get_cell_power_kW(tm)         # current UE serving_cell power consumption
+        tm = self.sim.env.now                                       # current time
+        sc_id = cell.i                                              # current cell
+        sc_sleep_mode = cell.get_sleep_mode()                       # current cell sleep mode status
+        sc_xy = cell.get_xyz()[:2]                                  # current cell xy position
+        ue_id = float('nan')                                        # UE ID
+        ue_xy = float('nan')                                        # UE xy position
+        d2sc = float('nan')                                         # distance to serving_cell
+        ue_tp = float('nan')                                        # UE throughput ('fundamental')
+        sc_power = cell.get_power_dBm()                             # current UE serving_cell transmit power
+        sc_rsrp = float('nan')                                      # current UE rsrp from serving_cell
+        neigh1_rsrp = float('nan')                                  # current UE neighbouring cell 1 rsrp
+        neigh2_rsrp = float('nan')                                  # current UE neighbouring cell 2 rsrp
+        noise = float('nan')                                        # current UE thermal noise
+        sinr = float('nan')                                         # current UE sinr from serving_cell
+        cqi = float('nan')                                          # current UE cqi from serving_cell
+        mcs = float('nan')                                          # current UE mcs for serving_cell
+        cell_tp = cell.get_cell_throughput()                        # current UE serving_cell throughput
+        cell_power_kW = cell_energy_model.get_cell_power_kW(tm)     # current UE serving_cell power consumption
+        cell_ee = ((cell_tp * 1e6) / (cell_power_kW * 1e3)) * 1e6   # current UE serving_cell energy efficiency
+        cell_se = (cell_tp * 1e6) / (cell.bw_MHz * 1e6)     # current UE serving_cell spectral efficiency
 
         # Get the above as a list
-        data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs]
+        data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, 
+                     neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_tp, cell_power_kW, 
+                     cell_ee, cell_se]
 
         # convert ndarrays to str or float
         for i, j in enumerate(data_list):
@@ -674,7 +674,10 @@ class MyLogger(Logger):
         all_data = []
         # Keep a list of column names to track
         columns = ["seed", "time", "serving_cell_id", "serving_cell_sleep_mode", "ue_id",
-            "distance_to_cell(m)", "ue_throughput(Mb/s)", "sc_power(dBm)","sc_rsrp(dBm)", "neighbour1_rsrp(dBm)", "neighbour2_rsrp(dBm)", "noise_power(dBm)", "sinr(dB)", "cqi", "mcs", "cell_power(kW)"]
+            "distance_to_cell(m)", "ue_throughput(Mb/s)", "sc_power(dBm)","sc_rsrp(dBm)", 
+            "neighbour1_rsrp(dBm)", "neighbour2_rsrp(dBm)", "noise_power(dBm)", "sinr(dB)", 
+            "cqi", "mcs", "cell_throughput(Mb/s)", "cell_power(kW)", "cell_ee(bits/J)", 
+            "cell_se(bits/Hz)"]
         for cell in self.sim.cells:
             if len(cell.attached) != 0:
                 # Get data for cells with attached UEs
@@ -686,8 +689,6 @@ class MyLogger(Logger):
         all_data = [item for sublist in all_data for item in sublist]
         # Return the column names and data
         return columns, all_data
-    
-
 
     def add_to_dataframe(self, col_labels, new_data, ignore_index):
         if self.dataframe is None:
@@ -907,44 +908,42 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-def plot_ues_fig(sim, ue_ids=None, show_annotation=True):
-    """
-    Plots the location of UE objects in the simulation.
+def plot_ues_fig(sim, ue_ids_start=None, ue_ids_end=None, show_labels=True, labels_start=None, labels_end=None):
 
-    Parameters
-    ----------
-    sim : object
-        An instance of the simulation.
-    ue_ids : list of int, optional
-        A list of UE IDs to plot. If None, all UEs are plotted. Default is None.
-    show_annotation : bool, optional
-        If True, displays an annotation with the UE ID. Default is True.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    The function extracts the UE objects with the given IDs from the simulation and plots their
-    locations as red dots. The function also adds an annotation for each UE showing its ID if
-    `show_annotation` is True. The location of the annotation is slightly offset from the UE
-    location. If the `ue_ids` argument is None, all UEs in the simulation are plotted.
-
-    """
     # FIXME - Add in switch to plot ues in a different color if they are in a cell
-
-    if ue_ids is None:
-        ue_objs_list = sim.UEs
-        ue_ids = list(range(len(ue_objs_list)))
+    if ue_ids_start is None and ue_ids_end is None:
+            ue_ids_start = 0
+            ue_ids_end = len(sim.UEs)
+    if ue_ids_start is not None and ue_ids_end is None:
+        ue_ids_end = ue_ids_start
+    if ue_ids_start is None and ue_ids_end is not None:
+        ue_ids_start = ue_ids_end
+    
+    if ue_ids_start == ue_ids_end:
+        ue_ids = ue_ids_start
+    elif ue_ids_start < ue_ids_end:
+        ue_ids = list(range(ue_ids_start, ue_ids_end))
+    elif ue_ids_start > ue_ids_end:
+        # Throw an error
+        raise ValueError("ue_ids_start must be less than ue_ids_end")
+    
+    if isinstance(ue_ids, int):
+        ue_objs_list = [sim.UEs[ue_ids]]
+    if isinstance(ue_ids, list) or isinstance(ue_ids, np.ndarray):
+        ue_objs_list = [sim.UEs[i] for i in ue_ids]
     else:
         ue_objs_list = [sim.UEs[i] for i in ue_ids]
     ue_x_list = [ue.xyz[0] for ue in ue_objs_list]
     ue_y_list = [ue.xyz[1] for ue in ue_objs_list]
     ue_xy_list = [ue.xyz[:2] for ue in ue_objs_list]
     plt.scatter(x=ue_x_list, y=ue_y_list, color='red', s=2.0)
-    if show_annotation:
-        for i in range(len(ue_ids)):
+    if show_labels:
+        if labels_start is None and labels_end is None:
+            labels_start = 0
+            labels_end = len(ue_ids)
+        if labels_end is None:
+            labels_end = labels_start + 1 # Only label the first labels_start ue_ids
+        for i in range(labels_start, labels_end):
             plt.annotate(text=str(ue_ids[i]), xy=ue_xy_list[i], xytext=(3,-2), textcoords='offset points',
             fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
 
@@ -971,11 +970,11 @@ def main(config_file):
     mme_anti_pingpong = config["mme_anti_pingpong"]
     mme_verbosity = config["mme_verbosity"]
     plot_ues = config["plot_ues"]
-    plot_ues_bool = bool(plot_ues)
-    plot_ues_labels = config["plot_ues_labels"]
-    plot_ues_labels_bool = bool(plot_ues_labels)
     plot_ues_start = config["plot_ues_start"]
     plot_ues_end = config["plot_ues_end"]
+    plot_ues_show_labels = config["plot_ues_show_labels"]
+    plot_ues_labels_start = config["plot_ues_show_labels_start"]
+    plot_ues_labels_end = config["plot_ues_show_labels_end"]
     plot_author = config.get("plot_author")
     mcs_table_number = config["mcs_table_number"]
     
@@ -993,7 +992,7 @@ def main(config_file):
         x, y = centre
         z = h_BS
         # Create the cell
-        sim.make_cellv2(interval=base_interval*0.5,xyz=[x, y, z], power_dBm=power_dBm)
+        sim.make_cellv2(interval=base_interval,xyz=[x, y, z], power_dBm=power_dBm)
 
     # Create a dictionary of cell-specific energy models
     cell_energy_models_dict = {}
@@ -1026,8 +1025,7 @@ def main(config_file):
 
     # Plot UEs if desired (uncomment to activate)
     if plot_ues:
-        sim_ue_ids = list(range(plot_ues_start, plot_ues_end, 1))
-        plot_ues_fig(sim=sim, show_annotation=False)
+        plot_ues_fig(sim=sim, ue_ids_start=plot_ues_start, ue_ids_end=plot_ues_end ,show_labels=plot_ues_show_labels, labels_start=plot_ues_labels_start, labels_end=plot_ues_labels_end)
         fig_timestamp(fig=hexgrid_plot, author=plot_author)
         fig_outfile_path = Path(logfile).with_suffix('.png')
         plt.savefig(fig_outfile_path)
