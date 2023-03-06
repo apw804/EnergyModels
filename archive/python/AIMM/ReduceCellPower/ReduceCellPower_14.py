@@ -761,7 +761,7 @@ def main(target_power_dBm, seed=0, subbands=1, isd=5000.0, sim_radius=2500.0, nu
         cell.set_f_callback(cell_energy_models_dict[cell.i].f_callback(cell))
 
     # Create an instance of the UMa pathloss model
-    UMa = UMa_pathloss(fc_GHz=fc_GHz, h_UT=h_UT, h_BS=h_BS, LOS=True)
+    UMa = UMa_pathloss(fc_GHz=fc_GHz, h_UT=h_UT, h_BS=h_BS, LOS=False)
 
     # Generate UEs using PPP and add to simulation
     ue_ppp = generate_ppp_points(

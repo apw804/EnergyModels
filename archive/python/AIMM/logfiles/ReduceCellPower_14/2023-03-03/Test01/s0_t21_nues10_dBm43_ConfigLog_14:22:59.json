@@ -1,0 +1,1 @@
+{"seeds": 0, "isd": 500.0, "sim_radius": 1000.0, "nues": 10, "subbands": 1, "fc_GHz": 3.4, "h_UT": 1.5, "h_BS": 25.0, "power_dBm": 43.0, "channel_bw_MHz": 10.0, "until": 21.0, "logging_interval": 1.0, "experiment_name": "Test01", "target_power_dBm": 49.0}
