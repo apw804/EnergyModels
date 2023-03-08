@@ -426,9 +426,6 @@ class CellEnergyModel:
 
 # Calculate the maximum Resource Elements
 max_nRE = NR_5G_standard_functions.Radio_state.nPRB * NR_5G_standard_functions.Radio_state.NRB_sc
-    
-
-
 
 
 class AMFv1(MME):

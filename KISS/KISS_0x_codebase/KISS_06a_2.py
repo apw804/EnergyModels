@@ -580,8 +580,6 @@ class MyLogger(Logger):
         neighbour_id, neighbour_rsrp_dBm = neighbour_cell_rsrp[neighbour_rank]
         return neighbour_id, neighbour_rsrp_dBm
     
-    
-    
     def get_cell_data_attached_UEs(self, cell):
         """
         Returns a list of data for each attached UE in a cell
@@ -707,8 +705,8 @@ class MyLogger(Logger):
         """Main loop for logger."""
         while True:
             # Don't capture t=0
-            # if self.sim.env.now == 0:
-                # yield self.sim.wait(self.logging_interval)
+            if self.sim.env.now == 0:
+                yield self.sim.wait(self.logging_interval)
             self.run_routine()
             print(f'logger time={self.sim.env.now}')
             yield self.sim.wait(self.logging_interval)

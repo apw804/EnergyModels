@@ -1,0 +1,17 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug run_kiss_07.py",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_KISS_07.py",
+      "args": ["-c", "/Users/apw804/dev-02/EnergyModels/KISS/KISS_07_change_random_cell_power_config.json"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
