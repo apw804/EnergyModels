@@ -1,0 +1,10 @@
+2023-03-09 22:22:03,531 - process_KISS_07 - INFO - Starting script.
+2023-03-09 22:22:03,531 - process_KISS_07 - INFO - Processing files in directory: /Users/apw804/dev-02/EnergyModels/KISS/KISS_07_results
+2023-03-09 22:22:03,531 - process_KISS_07 - INFO - Output file type: feather
+2023-03-09 22:22:03,531 - process_KISS_07 - INFO - Output file name: None
+2023-03-09 22:22:03,734 - process_KISS_07 - INFO - Read 100 files.
+2023-03-09 22:22:03,734 - process_KISS_07 - INFO - Concatenating dataframes.
+2023-03-09 22:22:03,759 - process_KISS_07 - INFO - Sorting data by seed, serving_cell_id, and ue_id.
+2023-03-09 22:22:03,765 - process_KISS_07 - INFO - Finished processing dataframes.
+2023-03-09 22:22:03,781 - process_KISS_07 - INFO - DataFrame written to /Users/apw804/dev-02/EnergyModels/KISS/KISS_07_results/KISS_07_results_2023-03-09T22:22:03.feather.
+2023-03-09 22:22:03,781 - process_KISS_07 - INFO - Finished processing files.
