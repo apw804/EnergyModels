@@ -25,7 +25,6 @@ from types import NoneType
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from _PHY import phy_data_procedures
 from AIMM_simulator import *
 from attr import dataclass
@@ -1314,12 +1313,6 @@ def run_simulation(seed, power_dBm, config_file):
     main(config_dict)
 
 if __name__ == '__main__':
-
-     # Enable TensorFlow GPU support
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if gpus:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
 
 
     # Create cmd line arguments
