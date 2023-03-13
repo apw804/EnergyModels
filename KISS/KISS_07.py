@@ -43,21 +43,21 @@ DEBUG_LOG = False
 
 def create_logfile_path(config_dict):
     """Create a path for the log file based on the config parameters"""
-    timestamp = get_timestamp(date_only=True)
+    date = get_timestamp(date_only=True)
+    project_root_dir = config_dict['project_root_dir']
     script_name = config_dict['script_name']
+    acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
     logfile_name = "_".join(
         [
-            get_timestamp(time_only=True), 
-            script_name, config_dict['script_version'],
-            config_dict['experiment_description'].split()[0],
+            get_timestamp(time_only=True),
+            acronym,
             "seed",
             str(config_dict['seed']),
             "power", 
-            str(config_dict['power_dBm']),
-            "log"
+            str(config_dict['power_dBm'])
         ])
     
-    logfile_path = f"data/output/{script_name}/{timestamp}/{logfile_name}"
+    logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
     
     if not os.path.exists(logfile_path):
         os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
@@ -709,8 +709,6 @@ class SetCellSleep(Scenario):
                 yield self.sim.wait(self.interval)
 
 
-
-
 class MyLogger(Logger):
 
     def __init__(self, *args,cell_energy_models=None, logfile_path=None, **kwargs):
@@ -1230,7 +1228,8 @@ def main(config_dict):
     plot_author = config_dict.get("plot_author")
     mcs_table_number = config_dict["mcs_table_number"]
 
-    logfile_name = create_logfile_path(seed=seed)
+    # Create a log file path
+    data_output_logfile_path = create_logfile_path(config_dict)
 
     # Create a simulator object
     sim = Simv2(rng_seed=seed)
@@ -1265,7 +1264,10 @@ def main(config_dict):
         ue.noise_power_dBm=ue_noise_power_dBm
 
     # Add the logger to the simulator
-    custom_logger = MyLogger(sim, logging_interval=base_interval, cell_energy_models=cell_energy_models_dict, logfile_path=create_logfile_path(config_dict=config_dict))
+    custom_logger = MyLogger(sim,
+                             logging_interval = base_interval, 
+                             cell_energy_models = cell_energy_models_dict, 
+                             logfile_path = ".".join([data_output_logfile_path, "tsv"]))
     sim.add_logger(custom_logger)
 
     # Add scenarios to simulation
@@ -1285,7 +1287,7 @@ def main(config_dict):
     if plot_ues:
         plot_ues_fig(sim=sim, ue_ids_start=plot_ues_start, ue_ids_end=plot_ues_end ,show_labels=plot_ues_show_labels, labels_start=plot_ues_labels_start, labels_end=plot_ues_labels_end)
         fig_timestamp(fig=hexgrid_plot, author=plot_author)
-        fig_outfile_path = Path(logfile_name).with_suffix('.png')
+        fig_outfile_path = Path(data_output_logfile_path).with_suffix('.png')
         plt.savefig(fig_outfile_path)
         plt.close()
 
@@ -1313,7 +1315,6 @@ def run_simulation(seed, power_dBm, config_file):
     main(config_dict)
 
 if __name__ == '__main__':
-
 
     # Create cmd line arguments
     parser = argparse.ArgumentParser()
