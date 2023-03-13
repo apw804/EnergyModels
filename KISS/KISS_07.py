@@ -51,10 +51,8 @@ def create_logfile_path(config_dict):
         [
             get_timestamp(time_only=True),
             acronym,
-            "seed",
-            str(config_dict['seed']),
-            "power", 
-            str(config_dict['power_dBm'])
+            "s" + str(config_dict['seed']),
+            "p" + str(config_dict['power_dBm']) + "dBm",
         ])
     
     logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
@@ -1271,10 +1269,31 @@ def main(config_dict):
     sim.add_logger(custom_logger)
 
     # Add scenarios to simulation
-    change_random_cell_power = ChangeCellPower(sim, delay=scenario_delay, new_power=new_power_dBm, interval=base_interval)
-    change_outer_ring_power = ChangeCellPower(sim, delay=scenario_delay, new_power=new_power_dBm, interval=base_interval)
-    remove_random_cell = RemoveRandomCell(sim, delay=scenario_delay, interval=base_interval)
-    set_cell_sleep = SetCellSleep(sim, interval=base_interval, time_cell_sleep_level_duration=SetCellSleep_bedtime_stories)
+    change_random_cell_power = ChangeCellPower(
+        sim, 
+        delay=scenario_delay, 
+        new_power=new_power_dBm, 
+        interval=base_interval
+        )
+    
+    change_outer_ring_power = ChangeCellPower(
+        sim, 
+        delay=scenario_delay, 
+        new_power=new_power_dBm, 
+        interval=base_interval
+        )
+    
+    remove_random_cell = RemoveRandomCell(
+        sim, 
+        delay=scenario_delay, 
+        interval=base_interval
+        )
+    
+    set_cell_sleep = SetCellSleep(
+        sim, 
+        interval=base_interval, 
+        time_cell_sleep_level_duration=SetCellSleep_bedtime_stories
+        )
 
     # Activate scenarios
     sim.add_scenario(scenario=change_random_cell_power)
@@ -1309,7 +1328,6 @@ def run_simulation(seed, power_dBm, config_file):
         config_dict = json.load(f)
     config_dict["seed"] = seed
     config_dict["power_dBm"] = power_dBm
-    config_dict["new_power_dBm"] = power_dBm - 0.5
     
     # Call main with the updated config_dict
     main(config_dict)
@@ -1327,8 +1345,8 @@ if __name__ == '__main__':
         config = json.load(f)
 
     # Create a list of seed and power dBm values
-    seed_values = list(range(config["seed"]))
-    power_dBm_values = np.arange(config["power_dBm"], config["new_power_dBm"], -0.5)
+    seed_values = list(range(config["seeds"]))
+    power_dBm_values = np.arange(config["power_dBm"], config["power_dBm_end"], -0.5)
 
     # Apply the run_simulation function to each combination of seed and power dBm values
     with mp.Pool(processes=4) as pool:

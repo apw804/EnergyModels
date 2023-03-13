@@ -1,9 +1,9 @@
 {
-    "experiment_description": "test_00",
+    "experiment_description": "reduce_random_cell_power",
     "script_name": "kiss_07",
     "script_version": "0.7",
     "project_root_dir": "/Users/apw804/dev-02/EnergyModels/KISS",
-    "seed": 2,
+    "seeds": 2,
     "isd": 1500,
     "sim_radius": 3000,
     "h_BS": 25,
