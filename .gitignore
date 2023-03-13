@@ -12,3 +12,4 @@ Icon*
 *.feather
 KISS/__pycache__
 *.pyc
+*.fea
