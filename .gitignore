@@ -10,3 +10,5 @@ Icon*
 *.log
 *.log
 *.feather
+KISS/__pycache__
+*.pyc
