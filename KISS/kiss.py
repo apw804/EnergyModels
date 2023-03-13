@@ -30,8 +30,7 @@ from hexalattice.hexalattice import *
 
 from utils_kiss import *
 
-# Turn off matplotlib interactive mode
-plt.ioff()
+
 
 logging.basicConfig(stream=stdout, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -599,7 +598,7 @@ class ChangeCellPower(Scenario):
         while True:
             if self.sim.env.now < self.delay_time:
                 yield self.sim.wait(self.interval)
-            if self.sim.env.now > self.delay_time:
+            if self.sim.env.now >= self.delay_time:
                 if isinstance(self.target_cells, list):
                     for i in self.target_cells:
                         self.sim.cells[i].set_power_dBm(self.new_power)
@@ -889,7 +888,7 @@ class MyLogger(Logger):
         '''
         Function called at end of simulation, to implement any required finalization actions.
         '''
-        print(f'Finalize time={self.sim.env.now}')
+        # print(f'Finalize time={self.sim.env.now}')
 
         # Run routine for final time step
         self.run_routine(ignore_index=True)
@@ -905,7 +904,7 @@ class MyLogger(Logger):
         df1 = df1.replace(r'^\s*$', np.nan, regex=True)
 
         # Print df to screen
-        print(df1)
+        # print(df1)
 
         # (DEBUGGING TOOL) 
         # Print a view of the type of value in each position
@@ -1062,8 +1061,8 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
 
     points = points[:expected_pts]
     
-    logging.info(f"The while loop ran {loop_count} times.")
-    logging.info(f"{remove_count} points were removed from the exclusion zone.")
+    logging.debug(f"The while loop ran {loop_count} times.")
+    logging.debug(f"{remove_count} points were removed from the exclusion zone.")
     
     return points
 
@@ -1096,7 +1095,7 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     plotted with radius `sim_radius`.
 
     """
-    
+    plt.ioff()
     fig, ax = plt.subplots()
 
     hexgrid_xy, _ = create_hex_grid(nx=5,
@@ -1196,16 +1195,15 @@ def plot_ues_fig(sim, ue_ids_start=None, ue_ids_end=None, show_labels=True, labe
             fontsize=8, color='red', bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),)
 
 
-
 def main(config_dict):
     seed = config_dict["seed"]
     isd = config_dict["isd"]
     sim_radius = config_dict["sim_radius"]
     power_dBm = config_dict["power_dBm"]
+    lower_cell_power_dBm = config_dict["low_cell_power_dBm"]
     nues = config_dict["nues"]
     until = config_dict["until"]
     base_interval = config_dict["base_interval"]
-    new_power_dBm = power_dBm
     h_BS = config_dict["h_BS"]
     h_UT = config_dict["h_UT"]
     ue_noise_power_dBm = config_dict["ue_noise_power_dBm"]
@@ -1228,7 +1226,7 @@ def main(config_dict):
     data_output_logfile_path = create_logfile_path(config_dict)
 
     # Create a simulator object
-    sim = Simv2(rng_seed=seed, )
+    sim = Simv2(rng_seed=seed)
     sim.seed = seed
 
     # Create instance of UMa-NLOS pathloss model
@@ -1253,7 +1251,7 @@ def main(config_dict):
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, h_UT
-        sim.make_UE(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=1).attach_to_strongest_cell_simple_pathloss_model()
+        sim.make_UE(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=0).attach_to_strongest_cell_simple_pathloss_model()
 
     # Change the noise_power_dBm
     for ue in sim.UEs:
@@ -1269,15 +1267,15 @@ def main(config_dict):
     # Add scenarios to simulation
     change_random_cell_power = ChangeCellPower(
         sim, 
-        delay=scenario_delay, 
-        new_power=new_power_dBm, 
+        delay=scenario_delay,
+        new_power=lower_cell_power_dBm, 
         interval=base_interval
         )
     
     change_outer_ring_power = ChangeCellPower(
         sim, 
         delay=scenario_delay, 
-        new_power=new_power_dBm, 
+        new_power=lower_cell_power_dBm, 
         interval=base_interval
         )
     
@@ -1320,19 +1318,10 @@ def main(config_dict):
 
 if __name__ == '__main__':
 
-    # Create cmd line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config_file', type=str, required=True)
-
-    # Create the args namespace
-    args = parser.parse_args()
-
-    with open(args.config_file) as f:
+    # Load the config file
+    config_file = "data/input/configs/kiss_change_random_cell_power_config.json"
+    with open(config_file, "r") as f:
         config = json.load(f)
-
-    # Create a list of seed and power dBm values
-    seed_values = list(range(config["seeds"]))
-    power_dBm_values = np.arange(config["power_dBm"], config["power_dBm_end"], -0.5)
 
     main(config_dict=config)
 

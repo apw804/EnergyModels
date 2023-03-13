@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from utils import get_timestamp
+from utils_kiss import get_timestamp
 
 def get_logger(logger_name, log_dir, log_level=logging.INFO):
     """

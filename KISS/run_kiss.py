@@ -1,57 +1,14 @@
 import argparse
 import json
 import multiprocessing
-import os
-from pathlib import Path
-import subprocess
-
+import time
 import numpy as np
 
-# Define the argument parser
-parser = argparse.ArgumentParser(
-    description='Run KISS_07_change_random_cell_power.py with a range of seed values.')
-parser.add_argument('-c', '--config-file', type=str, required=True,
-                    default='/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_change_random_cell_power_config.json')
+from kiss import main
 
-
-def process_args(seed, config_file):
-    # FIXME - add power_dBm update here
+def generate_config_dict_list(config_file):
     # Load the contents of the JSON file into a dictionary
     with open(config_file) as f:
-        config = json.load(f)
-
-    # Update the "seed" and  value in the dictionary
-    config['seed'] = seed
-
-    # Save the updated JSON file with the seed value appended to the output filename
-    out_file = Path(config_file)  # Path to the output file
-    new_out_file = out_file.with_stem(out_file.stem + f"_{seed}")
-    config['logfile_name'] = str(new_out_file)
-
-    with open(str(new_out_file), 'w') as f:
-
-        json.dump(config, f, indent=4)
-        # Return the path to the new config file
-        return str(new_out_file)
-
-
-def run_KISS_07(config_file):
-    # Call KISS_07.py with the new config file
-    command = f"python KISS_07_change_random_cell_power.py -c {config_file}"
-    subprocess.run(command, shell=True, check=True)
-    with open(config_file) as f:
-        config = json.load(f)
-    seed = config['seed']
-    print(f"Processed seed value: {seed}")
-    
-
-
-if __name__ == '__main__':
-    # Parse the command line arguments
-    args = parser.parse_args()
-
-    # Load the contents of the JSON file into a dictionary
-    with open(args.config_file) as f:
         config = json.load(f)
 
     # Extract the maximum seed value from the dictionary
@@ -59,22 +16,96 @@ if __name__ == '__main__':
 
     # Extract the power_dBm value from the dictionary
     power_dBm = config['power_dBm']
-    # Extract the new_power_dBm value from the dictionary
-    new_power_dBm = config['new_power_dBm']
+
+    # Extract the power_dBm_end value from the dictionary
+    power_dBm_end = config['power_dBm_end']
+
+    # Extract the power_dBm_step value from the dictionary
+    power_dBm_step = config['power_dBm_step']
+
     # Define the range of power values to test
-    power_values = np.arange(power_dBm, new_power_dBm, 0.5)
+    power_values = np.arange(power_dBm, power_dBm_end-power_dBm_step, -power_dBm_step)
 
-    # FIXME - need to set the json power dBm value to the new value
-
-    # Process each seed value to generate config files
+    # Define the range of seed values to test 
     seeds = list(range(seed_max))
-    new_configs = []
+
+    # Create a list of dictionaries
+    config_dict_list = []
     for seed in seeds:
-        new_configs.append(process_args(seed, args.config_file))
+        for power_dBm in power_values:
+            # Create a new dictionary object for each iteration
+            config_copy = config.copy()
+            
+            # Update the seed and power_dBm value in the new dictionary object
+            config_copy['seed'] = seed
+            config_copy['power_dBm'] = power_dBm
+            
+            # Append the new dictionary object to the list
+            config_dict_list.append(config_copy)
 
-    # Run KISS_07.py for each config file
-    for config_file in new_configs:
-        run_KISS_07(config_file)
+    # Return the list of dictionaries
+    return config_dict_list
 
-    # Print a message to indicate that all subprocesses have completed
-    print("All subprocesses completed")
+
+def run_kiss(dict):
+    # Run kiss.py with the dictionary as an argument
+    main(dict)
+    print(f'Completed: {dict["seed"]}, {dict["power_dBm"]}')
+    
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Run kiss.py against a specified config value.')
+    parser.add_argument(
+        '-c', 
+        '--config-file', 
+        type=str, 
+        required=True,
+        default='KISS/data/input/configs/kiss_test_00.json'
+        )
+
+    args = parser.parse_args()
+
+    config_dict_list = generate_config_dict_list(args.config_file)
+    max_processes = 8
+    process_list = []
+
+    def wait_for_processes(process_list, max_processes):
+        while len(process_list) >= max_processes:
+            for p in process_list:
+                if not p.is_alive():
+                    process_list.remove(p)
+                    break
+            else:
+                continue
+            break
+
+    # Start the timer
+    start_time = time.time()
+
+    for config_dict in config_dict_list:
+        wait_for_processes(process_list, max_processes)
+
+        p = multiprocessing.Process(target=run_kiss, args=(config_dict,))
+        process_list.append(p)
+        p.start()
+
+    for p in process_list:
+        p.join()
+
+        # Check if an exception was raised in the worker process
+        if p.exitcode != 0:
+            print(f"Process {p.pid} raised an exception with exit code {p.exitcode}")
+            # Add error handling code here if needed
+
+    # Stop the timer
+    end_time = time.time()
+
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+
+    # Print the elapsed time
+    print(f"All subprocesses completed in {elapsed_time:.2f} seconds")
+
