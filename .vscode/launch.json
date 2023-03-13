@@ -5,6 +5,7 @@
   "version": "0.2.0",
   "configurations": [
   
+  
     {
       "name": "Debug kiss_07.py",
       "type": "python",
@@ -22,6 +23,15 @@
       "args": ["-c", "/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_test_00.json"],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug run_kiss.py with test_00_json.py",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
+      "args": ["-c", "data/input/configs/kiss_test_00.json"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
     }
   ]
 }
