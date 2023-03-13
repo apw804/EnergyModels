@@ -21,9 +21,11 @@ from time import localtime, strftime
 from types import NoneType
 
 
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from _PHY import phy_data_procedures
 from AIMM_simulator import *
 from attr import dataclass
@@ -1312,6 +1314,14 @@ def run_simulation(seed, power_dBm, config_file):
     main(config_dict)
 
 if __name__ == '__main__':
+
+     # Enable TensorFlow GPU support
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+
+
     # Create cmd line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config_file', type=str, required=True)
@@ -1326,14 +1336,8 @@ if __name__ == '__main__':
     seed_values = list(range(config["seed"]))
     power_dBm_values = np.arange(config["power_dBm"], config["new_power_dBm"], -0.5)
 
-    # Start a new process for each seed value and power dBm value
-    processes = []
-    for seed in seed_values:
-        for power_dBm in power_dBm_values:
-            p = mp.Process(target=run_simulation, args=(seed, power_dBm, args.config_file))
-            p.start()
-            processes.append(p)
+    # Apply the run_simulation function to each combination of seed and power dBm values
+    with mp.Pool(processes=4) as pool:
+        args_list = [(seed, power_dBm, args.config_file) for seed in seed_values for power_dBm in power_dBm_values]
+        pool.starmap(run_simulation, args_list)
 
-    # Wait for all processes to finish
-    for p in processes:
-        p.join()
