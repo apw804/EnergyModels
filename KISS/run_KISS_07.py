@@ -11,8 +11,7 @@ import numpy as np
 parser = argparse.ArgumentParser(
     description='Run KISS_07_change_random_cell_power.py with a range of seed values.')
 parser.add_argument('-c', '--config-file', type=str, required=True,
-                    default='/Users/apw804/dev-02/EnergyModels/KISS/KISS_07_change_random_cell_power_config.json',
-                    help='path to the JSON configuration file')
+                    default='/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_change_random_cell_power_config.json')
 
 
 def process_args(seed, config_file):
