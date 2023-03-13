@@ -1,0 +1,6 @@
+2023-03-13 00:48:26,588 - process_KISS_07 - INFO - Starting script.
+2023-03-13 00:48:26,589 - process_KISS_07 - INFO - Processing files in directory: /Users/apw804/dev-02/EnergyModels/KISS/KISS_07_results
+2023-03-13 00:48:26,589 - process_KISS_07 - INFO - Output file type: csv
+2023-03-13 00:48:26,589 - process_KISS_07 - INFO - Output file name: None
+2023-03-13 00:48:26,589 - process_KISS_07 - INFO - Read 0 files.
+2023-03-13 00:48:26,589 - process_KISS_07 - INFO - Concatenating dataframes.
