@@ -46,10 +46,10 @@ def create_logfile_path(config_dict):
     acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
     logfile_name = "_".join(
         [
-            get_timestamp(time_only=True),
+            # get_timestamp(time_only=True),
             acronym,
             "s" + str(config_dict['seed']),
-            "p" + str(config_dict['power_dBm']) + "dBm",
+            "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
         ])
     
     logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
@@ -561,7 +561,7 @@ class CellEnergyModel:
 
 class ChangeCellPower(Scenario):
     """
-    Changes the power_dBm of the specified list of cells (default outer ring) after a specified delay time (if provided), relative to t=0.
+    Changes the power_dBm of the specified list of cells (default random cell ) after a specified delay time (if provided), relative to t=0.
     """
 
     def __init__(self, sim, interval=0.5, cells=None, delay=None, new_power=None):
@@ -1199,8 +1199,8 @@ def main(config_dict):
     seed = config_dict["seed"]
     isd = config_dict["isd"]
     sim_radius = config_dict["sim_radius"]
-    power_dBm = config_dict["power_dBm"]
-    lower_cell_power_dBm = config_dict["low_cell_power_dBm"]
+    power_dBm = config_dict["constant_cell_power_dBm"]
+    variable_cell_power_dBm = config_dict["variable_cell_power_dBm"]
     nues = config_dict["nues"]
     until = config_dict["until"]
     base_interval = config_dict["base_interval"]
@@ -1268,14 +1268,14 @@ def main(config_dict):
     change_random_cell_power = ChangeCellPower(
         sim, 
         delay=scenario_delay,
-        new_power=lower_cell_power_dBm, 
+        new_power=variable_cell_power_dBm, 
         interval=base_interval
         )
     
     change_outer_ring_power = ChangeCellPower(
         sim, 
         delay=scenario_delay, 
-        new_power=lower_cell_power_dBm, 
+        new_power=variable_cell_power_dBm, 
         interval=base_interval
         )
     

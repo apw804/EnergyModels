@@ -45,6 +45,8 @@ def write_dataframe(df: pd.DataFrame, path: Path, outfile: str = None,
         df.to_feather(outpath)
     elif file_type == 'csv':
         df.to_csv(outpath, index=False)
+    elif file_type == 'tsv':
+        df.to_csv(outpath, index=False, sep='\t')
     else:
         raise ValueError(f'Invalid file type: {file_type}')
     logger.info(f'DataFrame written to {outpath}.')
