@@ -1,5 +1,7 @@
 {
-    "logfile_name": "KISS07_config_seed.json",
+    "experiment_description": "reduce_random_cell_power",
+    "script_name": "kiss_07",
+    "script_version": "0.7.0",
     "seed": 100,
     "isd": 1500,
     "sim_radius": 3000,
