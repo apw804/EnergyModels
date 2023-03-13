@@ -1,1 +1,0 @@
-# Authentication Server Function (AUSF)

@@ -1,1 +1,0 @@
-# Massive Machine Type Communications node (i.e. V2V, smart city, IoT)

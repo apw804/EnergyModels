@@ -1,1 +1,0 @@
-# Weather artifacts (e.g.atmospheric, electrical storms, solar flares, flooding, fire, snow)

@@ -1,1 +1,0 @@
-# Ground cover of plants, trees etc.

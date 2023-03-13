@@ -1,1 +1,0 @@
-# Power outages (blackout), low voltage (brownout), spikes & surges, battery, generator

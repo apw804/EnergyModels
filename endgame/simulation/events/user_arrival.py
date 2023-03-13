@@ -1,1 +1,0 @@
-# Event for when a new user connects to the network

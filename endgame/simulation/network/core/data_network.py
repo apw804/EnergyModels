@@ -1,1 +1,0 @@
-# When a new user connects to the network, this event is triggered and the system updates the network state to reflect the new connection.

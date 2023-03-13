@@ -1,1 +1,0 @@
-# Defines ways users move in a simulation. (e.g. could use sci-kit mobility)

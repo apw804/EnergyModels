@@ -1,1 +1,0 @@
-# Airflow, cooling, overheating
