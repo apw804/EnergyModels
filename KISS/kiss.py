@@ -594,6 +594,8 @@ class ChangeCellPower(Scenario):
         if self.target_cells is None:
             if n_cells is not None and n_cells > 0:
                 self.target_cells = self.sim.rng.choice(len(self.sim.cells), n_cells, replace=False)
+            elif cells is not None:
+                    self.target_cells = cells
             else:
                 self.target_cells = self.random_cell
 
@@ -1210,6 +1212,7 @@ def main(config_dict):
     power_dBm = config_dict["constant_cell_power_dBm"]
     variable_cell_power_dBm = config_dict["variable_cell_power_dBm"]
     n_variable_power_cells = config_dict["n_variable_power_cells"]
+    variable_power_target_cells_list = config_dict["variable_power_target_cells_list"],
     nues = config_dict["nues"]
     until = config_dict["until"]
     base_interval = config_dict["base_interval"]
@@ -1282,6 +1285,14 @@ def main(config_dict):
         interval=base_interval
         )
     
+    reduce_centre_cell_power = ChangeCellPower(
+        sim,
+        delay=scenario_delay,
+        cells=variable_power_target_cells_list[0],
+        new_power=variable_cell_power_dBm, 
+        interval=base_interval
+        )
+    
     change_outer_ring_power = ChangeCellPower(
         sim, 
         delay=scenario_delay, 
@@ -1302,7 +1313,7 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=reduce_random_cell_power)
+    sim.add_scenario(scenario=reduce_centre_cell_power)
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
@@ -1319,9 +1330,6 @@ def main(config_dict):
     # Run simulator
     sim.run(until=until)
 
-    # Return the final dataframe in a way that it is available to external scripts
-    return sim.dataframe
-
 
 
 
@@ -1329,7 +1337,7 @@ def main(config_dict):
 if __name__ == '__main__':
 
     # Load the config file
-    config_file = "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"
+    config_file = "KISS/_test/data/input/kiss/test_kiss.json"
     with open(config_file, "r") as f:
         config = json.load(f)
 
