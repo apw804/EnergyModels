@@ -5,11 +5,23 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: Current File",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
       "name": "Debug kiss_07.py",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/KISS_07.py",
-      "args": ["-c", "/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_change_random_cell_power_config.json"],
+      "args": [
+        "-c",
+        "/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_change_random_cell_power_config.json"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
     },
@@ -18,7 +30,10 @@
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/KISS_07.py",
-      "args": ["-c", "/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_test_00.json"],
+      "args": [
+        "-c",
+        "/Users/apw804/dev-02/EnergyModels/KISS/data/input/kiss_07/KISS_07_test_00.json"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
     },
@@ -27,7 +42,10 @@
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/run_kiss.py",
-      "args": ["-c", "data/input/configs/kiss_test_00.json"],
+      "args": [
+        "-c",
+        "data/input/configs/kiss_test_00.json"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
     },
@@ -36,7 +54,10 @@
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/rrcp_02_run_kiss.py",
-      "args": ["-c", "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"],
+      "args": [
+        "-c",
+        "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
     },
@@ -46,20 +67,23 @@
       "request": "launch",
       "module": "cProfile",
       "args": [
-          "${workspaceFolder}/KISS/kiss.py"
+        "${workspaceFolder}/KISS/kiss.py"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
-      },
-      {
-        "name": "Debug data_analysis.py with rrcp01_s100_p43dBm.fea",
-        "type": "python",
-        "request": "launch",
-        "program": "${workspaceFolder}/KISS/data_analysis.py",
-        "args": ["--data_file_path", "data/output/kiss/reduce_random_cell_power/rrcp01/rrcp01_s100_p43dBm.fea"],
-        "console": "integratedTerminal",
-        "cwd": "${workspaceFolder}/KISS"
-      },
+    },
+    {
+      "name": "Debug data_analysis.py with rrcp01_s100_p43dBm.fea",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/data_analysis.py",
+      "args": [
+        "--data_file_path",
+        "data/output/kiss/reduce_random_cell_power/rrcp01/rrcp01_s100_p43dBm.fea"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
   }
-  ]
+]
 }
