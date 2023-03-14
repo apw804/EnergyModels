@@ -12,6 +12,13 @@ def get_logger(logger_name, log_dir, log_level=logging.INFO):
 
     # Set up file handler to write all logging messages to the same file
     log_file_path = Path(log_dir) / f'{logger_name}_{get_timestamp()}.log'
+
+    # Create the log file if it doesn't exist, including any parent directories
+    if log_file_path.exists() == False:
+        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        log_file_path.touch()
+    
+    # Set up file handler to write logging messages to the log file
     handler = logging.FileHandler(log_file_path, mode="a")
     handler.setLevel(log_level)
     formatter = logging.Formatter(
