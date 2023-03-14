@@ -4,9 +4,6 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-
-  
-  
     {
       "name": "Debug kiss_07.py",
       "type": "python",
@@ -42,6 +39,27 @@
       "args": ["-c", "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
-    }
+    },
+    {
+      "name": "Python: Profile kiss.py",
+      "type": "python",
+      "request": "launch",
+      "module": "cProfile",
+      "args": [
+          "${workspaceFolder}/KISS/kiss.py"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+      },
+      {
+        "name": "Debug data_analysis.py with rrcp01_s100_p43dBm.fea",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/KISS/data_analysis.py",
+        "args": ["--data_file_path", "data/output/kiss/reduce_random_cell_power/rrcp01/rrcp01_s100_p43dBm.fea"],
+        "console": "integratedTerminal",
+        "cwd": "${workspaceFolder}/KISS"
+      },
+  }
   ]
 }
