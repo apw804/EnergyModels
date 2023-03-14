@@ -46,7 +46,7 @@ def concat_dataframes(dataframes):
 
 
 def write_dataframe(df: pd.DataFrame, path: str, outfile: str = None,
-                    file_type: str = 'fea', logger=None):
+                    file_type: str = 'fea', logger=None, **kwargs):
     """
     Write a Pandas DataFrame to a file.
     """
@@ -61,11 +61,11 @@ def write_dataframe(df: pd.DataFrame, path: str, outfile: str = None,
     outpath = outpath.replace(':', '_').replace('-', '_')
     if file_type == 'fea':
         df = df.reset_index()
-        df.to_feather(outpath)
+        df.to_feather(outpath, **kwargs)
     elif file_type == 'csv':
-        df.to_csv(outpath, index=False)
+        df.to_csv(outpath, index=True)
     elif file_type == 'tsv':
-        df.to_csv(outpath, index=False, sep='\t')
+        df.to_csv(outpath, index=True, sep='\t')
     else:
         raise ValueError(f'Invalid file type: {file_type}')
     logger.info(f'DataFrame written to {outpath}.')
