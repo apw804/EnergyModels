@@ -32,7 +32,7 @@ def concat_dataframes(dataframes):
     return master_df
 
 
-def write_dataframe(df: pd.DataFrame, logger, path: Path, outfile: str = None,
+def write_dataframe(df: pd.DataFrame, path: Path, outfile: str = None,
                     file_type: str = 'feather'):
     """
     Write a Pandas DataFrame to a file.
@@ -40,7 +40,6 @@ def write_dataframe(df: pd.DataFrame, logger, path: Path, outfile: str = None,
     if outfile is None:
         outfile = path.resolve().stem
     outpath = path / f'{outfile}_{get_timestamp()}.{file_type}'
-    outpath = str(outpath).replace(':', '-')
     if file_type == 'feather':
         df = df.reset_index()
         df.to_feather(outpath)
