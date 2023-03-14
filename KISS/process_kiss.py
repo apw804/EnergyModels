@@ -40,7 +40,7 @@ def write_dataframe(df: pd.DataFrame, logger, path: Path, outfile: str = None,
     if outfile is None:
         outfile = path.resolve().stem
     outpath = path / f'{outfile}_{get_timestamp()}.{file_type}'
-    outpath = outpath.replace(':', '-')
+    outpath = str(outpath).replace(':', '-')
     if file_type == 'feather':
         df = df.reset_index()
         df.to_feather(outpath)
