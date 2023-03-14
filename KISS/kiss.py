@@ -1204,6 +1204,7 @@ def plot_ues_fig(sim, ue_ids_start=None, ue_ids_end=None, show_labels=True, labe
 
 def main(config_dict):
     seed = config_dict["seed"]
+    sim_show_params = config_dict["sim_show_params"]
     isd = config_dict["isd"]
     sim_radius = config_dict["sim_radius"]
     power_dBm = config_dict["constant_cell_power_dBm"]
@@ -1234,7 +1235,7 @@ def main(config_dict):
     data_output_logfile_path = create_logfile_path(config_dict)
 
     # Create a simulator object
-    sim = Simv2(rng_seed=seed)
+    sim = Simv2(rng_seed=seed, show_params=sim_show_params)
     sim.seed = seed
 
     # Create instance of UMa-NLOS pathloss model
@@ -1328,7 +1329,7 @@ def main(config_dict):
 if __name__ == '__main__':
 
     # Load the config file
-    config_file = "data/input/configs/kiss_change_random_cell_power_config.json"
+    config_file = "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"
     with open(config_file, "r") as f:
         config = json.load(f)
 
