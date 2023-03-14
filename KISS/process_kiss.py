@@ -131,12 +131,14 @@ if __name__ == '__main__':
         '--file_type', 
         type=str, 
         help='File type of output file (csv, fea, tsv)', 
-        default='csv'
+        default='fea'
     )
     args = parser.parse_args()
 
     script_name = Path(__file__).resolve().stem
-    logger = get_logger(script_name, args.outfile_path)
+    if args.file_starts_with == 'test_':
+        script_name = f'test_{script_name}'
+    logger = get_logger(logger_name=script_name, log_dir=args.outfile_path)
 
     main(
         directory=args.dir, 

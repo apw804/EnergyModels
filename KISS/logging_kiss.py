@@ -11,7 +11,7 @@ def get_logger(logger_name, log_dir, log_level=logging.INFO):
     logger.setLevel(log_level)
 
     # Set up file handler to write all logging messages to the same file
-    log_file_path = Path(log_dir) / f'{logger_name}_{get_timestamp()}.log'
+    log_file_path = Path(log_dir) / f'{logger_name}_{get_timestamp()}.log'.replace(':', '_').replace('-', '_')
 
     # Create the log file if it doesn't exist, including any parent directories
     if log_file_path.exists() == False:
