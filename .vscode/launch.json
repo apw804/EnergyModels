@@ -4,6 +4,7 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
+
   
   
     {
@@ -30,6 +31,15 @@
       "request": "launch",
       "program": "${workspaceFolder}/KISS/run_kiss.py",
       "args": ["-c", "data/input/configs/kiss_test_00.json"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
+    {
+      "name": "Debug rrcp_02_run_kiss.py with reduce_random_cell_power_02.json",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/rrcp_02_run_kiss.py",
+      "args": ["-c", "data/input/configs/reduce_random_cell_power/rrcp02/reduce_random_cell_power_02.json"],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
     }

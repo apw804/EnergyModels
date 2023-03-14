@@ -50,6 +50,7 @@ def create_logfile_path(config_dict):
             acronym,
             "s" + str(config_dict['seed']),
             "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
+            "n_var_cells" + str(config_dict['n_variable_power_cells']),
         ])
     
     logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
@@ -564,7 +565,7 @@ class ChangeCellPower(Scenario):
     Changes the power_dBm of the specified list of cells (default random cell ) after a specified delay time (if provided), relative to t=0.
     """
 
-    def __init__(self, sim, interval=0.5, cells=None, delay=None, new_power=None):
+    def __init__(self, sim, interval=0.5, cells=None, n_cells=None, delay=None, new_power=None):
         """
         Initializes an instance of the ChangeCellPower class.
 
@@ -576,20 +577,25 @@ class ChangeCellPower(Scenario):
             The time interval between each power change. Default is 0.5.
         cells : list of int, optional
             The list of cell indices to change power. Default is random_cell (based on the seed in the simulation)
+        n_cells : int, optional
+            The number of random cells to change power. Default is None.
         delay : float, optional
             The delay time before changing the cell powers. Default is None.
         new_power : float, optional
             The new power_dBm to set for the specified cells. Default is None.
         """
-        self.target_cells = cells
+        self.target_cells = None
         self.delay_time = delay
         self.new_power = new_power
         self.sim = sim
         self.interval = interval
         self.random_cell = self.sim.rng.integers(low=0, high=len(self.sim.cells))
         self.outer_ring = [0, 1, 2, 3, 6, 7, 11, 12, 15, 16, 17, 18]
-        if cells is None:
-            self.target_cells = self.random_cell
+        if self.target_cells is None:
+            if n_cells is not None and n_cells > 0:
+                self.target_cells = self.sim.rng.choice(len(self.sim.cells), n_cells, replace=False)
+            else:
+                self.target_cells = self.random_cell
 
     def loop(self):
         """
@@ -599,12 +605,13 @@ class ChangeCellPower(Scenario):
             if self.sim.env.now < self.delay_time:
                 yield self.sim.wait(self.interval)
             if self.sim.env.now >= self.delay_time:
-                if isinstance(self.target_cells, list):
+                if isinstance(self.target_cells, list) or isinstance(self.target_cells, np.ndarray):
                     for i in self.target_cells:
                         self.sim.cells[i].set_power_dBm(self.new_power)
-                else:
+                elif isinstance(self.target_cells, int):
                     self.sim.cells[self.target_cells].set_power_dBm(self.new_power)
             yield self.sim.wait(self.interval)
+
 
 
 class RemoveRandomCell(Scenario):
@@ -1201,6 +1208,7 @@ def main(config_dict):
     sim_radius = config_dict["sim_radius"]
     power_dBm = config_dict["constant_cell_power_dBm"]
     variable_cell_power_dBm = config_dict["variable_cell_power_dBm"]
+    n_variable_power_cells = config_dict["n_variable_power_cells"]
     nues = config_dict["nues"]
     until = config_dict["until"]
     base_interval = config_dict["base_interval"]
@@ -1265,8 +1273,9 @@ def main(config_dict):
     sim.add_logger(custom_logger)
 
     # Add scenarios to simulation
-    change_random_cell_power = ChangeCellPower(
+    reduce_random_cell_power = ChangeCellPower(
         sim, 
+        n_cells=n_variable_power_cells,
         delay=scenario_delay,
         new_power=variable_cell_power_dBm, 
         interval=base_interval
@@ -1292,7 +1301,7 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=change_random_cell_power)
+    sim.add_scenario(scenario=reduce_random_cell_power)
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
