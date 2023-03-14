@@ -12,6 +12,19 @@ def read_files(directory, file_starts_with):
     Read all TSV files in a directory that begin with a specified string and 
     return a list of DataFrames.
     """
+    # If the directory is a string, convert it to a Path object
+    if isinstance(directory, str):
+        # If the directory is a string, convert it to a Path object
+        directory = Path(directory)
+        # check if the directory is a relative path
+        if not directory.is_absolute():
+            # If it is a relative path, make it an absolute path
+            directory = directory.resolve()
+
+    # Check that the directory exists
+    directory = directory.resolve()
+
+    # Read in the files
     files = [pd.read_csv(os.path.join(directory, filename), delimiter='\t')
              for filename in os.listdir(directory)
              if filename.endswith('.tsv') and 
@@ -32,15 +45,21 @@ def concat_dataframes(dataframes):
     return master_df
 
 
-def write_dataframe(df: pd.DataFrame, path: Path, outfile: str = None,
-                    file_type: str = 'feather'):
+def write_dataframe(df: pd.DataFrame, path: str, outfile: str = None,
+                    file_type: str = 'fea', logger=None):
     """
     Write a Pandas DataFrame to a file.
     """
+    if path is None:
+        # If no path is specified, use the current working directory
+        path = Path.cwd()
     if outfile is None:
-        outfile = path.resolve().stem
-    outpath = path / f'{outfile}_{get_timestamp()}.{file_type}'
-    if file_type == 'feather':
+        # If no output file name is specified, use the name of the current script
+        outfile = "_".join(["test", str(Path(__file__).stem)])
+
+    outpath = "/".join([path, f'{outfile}_{get_timestamp()}.{file_type}'])
+    outpath = outpath.replace(':', '_').replace('-', '_')
+    if file_type == 'fea':
         df = df.reset_index()
         df.to_feather(outpath)
     elif file_type == 'csv':
@@ -53,7 +72,7 @@ def write_dataframe(df: pd.DataFrame, path: Path, outfile: str = None,
 
 
 def main(directory, file_starts_with, logging_enabled=True, 
-         outfile=None, file_type='csv'):
+         outfile=None, outfile_path=None, file_type='csv'):
 
     # Set up logging
     if logging_enabled:
@@ -68,7 +87,11 @@ def main(directory, file_starts_with, logging_enabled=True,
     master_df = concat_dataframes(files)
 
     # Write the output file
-    write_dataframe(master_df, Path(directory), outfile, file_type)
+    write_dataframe(df=master_df, 
+                    path=outfile_path, 
+                    outfile=outfile, 
+                    file_type=file_type, 
+                    logger=logger)
 
     if logging_enabled:
         logger.info('Finished processing files.')
@@ -85,13 +108,13 @@ if __name__ == '__main__':
         '--dir', 
         type=str, 
         help='Directory where files are located', 
-        default='/Users/apw804/dev-02/EnergyModels/KISS/data/output/kiss_07/2023-03-13'
+        default='KISS/_test/data/input/process_kiss'
     )
     parser.add_argument(
         '--file_starts_with', 
         type=str, 
         help='String that all files start with', 
-        default='KISS_07_change_random_cell_power'
+        default='test_'
     )
     parser.add_argument(
         '--outfile', 
@@ -99,21 +122,28 @@ if __name__ == '__main__':
         help='Name of output file'
     )
     parser.add_argument(
+        '--outfile_path',
+        type=str,
+        help='Path to output file',
+        default='KISS/_test/data/output/process_kiss'
+    )
+    parser.add_argument(
         '--file_type', 
         type=str, 
-        help='File type of output file (csv or feather)', 
+        help='File type of output file (csv, fea, tsv)', 
         default='csv'
     )
     args = parser.parse_args()
 
     script_name = Path(__file__).resolve().stem
-    logger = get_logger(script_name, args.dir)
+    logger = get_logger(script_name, args.outfile_path)
 
     main(
         directory=args.dir, 
         file_starts_with=args.file_starts_with, 
         logging_enabled=args.no_logging, 
-        outfile=args.outfile, 
+        outfile=args.outfile,
+        outfile_path=args.outfile_path, 
         file_type=args.file_type
     )
 
