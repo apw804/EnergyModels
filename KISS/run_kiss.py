@@ -89,7 +89,7 @@ def run_kiss(dict):
     if process.returncode != 0:
         print(process.stderr.decode())
     else:
-        print(f'Completed: {dict["seed"]}, {dict["power_dBm"]}')
+        print(f'Completed: seed={dict["seed"]}, cell_power_dBm{dict["variable_cell_power_dBm"]}')
 
     # Delete the temporary JSON file
     os.remove(temp_json)
