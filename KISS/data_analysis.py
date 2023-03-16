@@ -51,7 +51,7 @@ def main(data_file_path, outfile_path=None):
     summary_stats = analyze_data(data_file_path)
 
     # Save the results to a tsv file
-    logger.info('Saving results to file...')
+    logger.info('Saving results to file...)'
     path=Path(data_file_path).parent
     outfile_name=str(Path(data_file_path).stem) + '_summary_stats'
     write_dataframe(
