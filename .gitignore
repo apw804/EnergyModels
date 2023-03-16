@@ -14,3 +14,5 @@ KISS/__pycache__
 *.pyc
 *.fea
 *.pstats
+.vscode/extensions.json
+.vscode/launch.json
