@@ -15,9 +15,9 @@
     "constant_cell_power_dBm": 43.0,
     "n_variable_power_cells": 1,
     "variable_power_target_cells_list": [
-        18
+        0
     ],
-    "nues": 400,
+    "nues": 800,
     "h_UT": 1.5,
     "until": 1,
     "base_interval": 1.0,
