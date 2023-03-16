@@ -6,6 +6,7 @@
 # Added the updated MCS table2 from PHY.py-data-procedures to override NR_5G_standard_functions.MCS_to_Qm_table_64QAM
 # Adding sleep mode by subclassing Cell and Sim
 # Refactored components from ReduceCellPower_14.py: CellEnergyModel
+# THIS IS KISS_PROFILED.PY
 
 
 import argparse
@@ -20,8 +21,12 @@ import numpy as np
 import pandas as pd
 from AIMM_simulator import *
 from hexalattice.hexalattice import *
+import utils_kiss
 
 
+# Fix custom imports
+bisect_left = _bisect.bisect_left
+get_timestamp = utils_kiss.get_timestamp
 
 # Get a timestamp for the current time and date
 date_now = get_timestamp(date_only=True)
@@ -757,8 +762,6 @@ class MyLogger(Logger):
         ----------
         ue_id : int
             The ID of the UE.
-        neighbour_rank : int
-            The rank of the neighbouring cell to return, where 0 is the highest ranked cell.
 
         Returns
         -------
@@ -769,7 +772,10 @@ class MyLogger(Logger):
         -----
         This function returns the neighbouring cell RSRPs, where index 0 is not the original serving cell.
         """
+        # Create a place to hold the results that will contain tuples of (cell_id, rsrp) and can be efficiently sorted by rsrp
         neighbour_cell_rsrp = []
+ 
+        # Loop through all cells
         for cell in self.sim.cells:
             cell_id = cell.i
             # Skip the serving cell
@@ -799,8 +805,14 @@ class MyLogger(Logger):
         for attached_ue_id in cell.attached:
             UE = self.sim.UEs[attached_ue_id]
             serving_cell = UE.serving_cell
+            if serving_cell.power_dBm == -np.inf or serving_cell.power_dBm <= 0.0:
+                serving_cell.reports["rsrp"].clear()                        # clear the serving cell["rsrp"] reports if the serving cell is not transmitting
+                                                                            # FIXME - using a dict comprehension doesn't clear the dictionary properly for some reason (e.g. {key: 0 for key in serving_cell.reports["rsrp"]}  )
+                serving_cell.reports["throughput_Mbps"].clear()             # clear the serving cell["throughput"] reports if the serving cell is not transmitting
+                UE.sinr_dB = 0.0                                          # clear the UE["sinr_dB"] reports if the serving cell is not transmitting
             cell_energy_model = self.cell_energy_models[serving_cell.i]
             seed = self.sim.seed
+            neigh_rsrp_array = self.get_neighbour_cell_rsrp_rank(UE.i)
             tm = self.sim.env.now                                           # current time
             sc_id = serving_cell.i                                          # current UE serving_cell
             sc_sleep_mode = serving_cell.get_sleep_mode()                   # current UE serving_cell sleep mode status
@@ -878,6 +890,7 @@ class MyLogger(Logger):
         data.append(data_list)
         return data
 
+
     def get_data(self):
         # Create an empty list to store generated data
         all_data = []
@@ -906,6 +919,7 @@ class MyLogger(Logger):
             new_data_df = pd.DataFrame(data=new_data, columns=col_labels)
             self.dataframe = pd.concat(
                 [self.dataframe, new_data_df], verify_integrity=True, ignore_index=ignore_index)
+
 
     def run_routine(self, ignore_index=True):
         col_labels, new_data = self.get_data()
@@ -939,6 +953,10 @@ class MyLogger(Logger):
         # Sort the data by time, UE_id then cell_id
         df.sort_values(['time','ue_id', 'serving_cell_id'], ascending=[True, True, True])
         df1 = df.copy()
+
+        # Convert all NaN and -np.inf values to 0.0
+        df1 = df1.replace([np.inf, -np.inf], np.nan)
+        df1 = df1.fillna(0.0)
 
         # Find empty values in the dataframe and replace with NaN
         df1 = df1.replace(r'^\s*$', np.nan, regex=True)
@@ -1264,6 +1282,7 @@ def main(config_dict):
     mme_strategy = config_dict["mme_strategy"]
     mme_anti_pingpong = config_dict["mme_anti_pingpong"]
     mme_verbosity = config_dict["mme_verbosity"]
+    plotting = config_dict["plotting"]
     plot_ues = config_dict["plot_ues"]
     plot_ues_start = config_dict["plot_ues_start"]
     plot_ues_end = config_dict["plot_ues_end"]
@@ -1316,6 +1335,8 @@ def main(config_dict):
                              cell_energy_models = cell_energy_models_dict, 
                              logfile_path = ".".join([data_output_logfile_path, "tsv"]))
     sim.add_logger(custom_logger)
+
+
 
     # Add scenarios to simulation
     reduce_random_cell_power = ChangeCellPower(
@@ -1395,5 +1416,71 @@ if __name__ == '__main__':
     with open(config_file, "r") as f:
         config = json.load(f)
 
+    # If debug_logging is enabled, create a logger object
+    if config["debug_logging"]:
+        try:
+            from logging_kiss import get_logger
+            # If successful, create a logger object
+            if callable(get_logger):
+                # Create a log file path
+                kiss_debugger_outfile_path = create_logfile_path(
+                    config_dict=config, 
+                    debug_logger=True
+                    )
+                # Create a logger object
+                kiss_debugger = get_logger(
+                    logger_name="kiss_debugger",
+                    logfile_path=kiss_debugger_outfile_path,
+                    log_level=config["debug_logging_level"],
+                    )
+        except ImportError:
+            print("logging_kiss not installed. debug_logging disabled.")
+            config["debug_logging"] = False
+
+
+    # Import plt if plotting is enabled
+    if config["plotting"]:
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("Matplotlib not installed. Plotting disabled.")
+            config["plotting"] = False
+
+    # Import kiss_phy_data_procedures if mcs_table_number is set
+    if config["mcs_table_number"] is not None:
+        try:
+            import kiss_phy_data_procedures
+        except ImportError:
+            print("kiss_phy_data_procedures not installed. mcs_table_number disabled.")
+            config["mcs_table_number"] = None
+    
+    # If line_profiler is enabled, import line_profiler
+    if config["line_profiler"]:
+        try:
+            import line_profiler
+            if callable(line_profiler):
+                # Method to profile a function
+                def profile_method(method):
+                    def wrapper(*args, **kwargs):
+                        lp = line_profiler.LineProfiler()
+                        lp_wrapper = lp(method)
+                        lp_wrapper(*args, **kwargs)
+                        lp.print_stats()
+                    return wrapper
+                # Use `@profile_method` to profile a function
+        except ImportError:
+            print("line_profiler not installed. line_profiler disabled.")
+            config["line_profiler"] = False
+
+    # Start timer
+    start_time = time()
+
+    # Run main
     main(config_dict=config)
+
+    # End timer
+    end_time = time()
+
+    # Log total time taken
+    kiss_debugger.info("Total time taken (s): {}".format(end_time - start_time))
 
