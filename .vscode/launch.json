@@ -15,13 +15,13 @@
       "justMyCode": true
     },
     {
-      "name": "Debug run_kiss.py with test_00_json.py",
+      "name": "Debug: run_kiss.py with test_kiss.json",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/run_kiss.py",
       "args": [
         "-c",
-        "data/input/configs/kiss_test_00.json"
+        "_test/data/input/kiss/test_kiss.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
