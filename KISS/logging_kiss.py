@@ -1,9 +1,7 @@
 import logging
 from pathlib import Path
 
-from utils_kiss import get_timestamp
-
-def get_logger(logger_name, log_dir, log_level=logging.INFO):
+def get_logger(logger_name, logfile_path, log_level=logging.INFO):
     """
     Create and return a logger object.
     """
@@ -11,7 +9,7 @@ def get_logger(logger_name, log_dir, log_level=logging.INFO):
     logger.setLevel(log_level)
 
     # Set up file handler to write all logging messages to the same file
-    log_file_path = Path(log_dir) / f'{logger_name}_{get_timestamp()}.log'.replace(':', '_').replace('-', '_')
+    log_file_path = Path(logfile_path).with_suffix(".log")
 
     # Create the log file if it doesn't exist, including any parent directories
     if log_file_path.exists() == False:
