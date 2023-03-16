@@ -6,66 +6,74 @@
 # Added the updated MCS table2 from PHY.py-data-procedures to override NR_5G_standard_functions.MCS_to_Qm_table_64QAM
 # Adding sleep mode by subclassing Cell and Sim
 # Refactored components from ReduceCellPower_14.py: CellEnergyModel
+# THIS IS KISS_PROFILED.PY
 
 
 import argparse
 import dataclasses
 import json
-import logging
 import os
-from datetime import datetime
-from pathlib import Path
-from sys import stderr, stdout
+import datetime
 from types import NoneType
-from bisect import bisect_left
+import _bisect
 
-import line_profiler
-import matplotlib
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from _PHY import phy_data_procedures
 from AIMM_simulator import *
-from attr import dataclass
 from hexalattice.hexalattice import *
-from utils_kiss import *
-
-logging.basicConfig(stream=stdout, level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-INFO_LOG = True
-DEBUG_LOG = False
-
-# Method to profile a function
-def profile_method(method):
-    def wrapper(*args, **kwargs):
-        lp = line_profiler.LineProfiler()
-        lp_wrapper = lp(method)
-        lp_wrapper(*args, **kwargs)
-        lp.print_stats()
-    return wrapper
+import utils_kiss
 
 
-def create_logfile_path(config_dict):
+# Fix custom imports
+bisect_left = _bisect.bisect_left
+get_timestamp = utils_kiss.get_timestamp
+
+# Get a timestamp for the current time and date
+date_now = get_timestamp(date_only=True)
+time_now = get_timestamp(time_only=True)
+
+
+def create_logfile_path(config_dict, debug_logger: bool = False):
     """Create a path for the log file based on the config parameters"""
-    date = get_timestamp(date_only=True)
     project_root_dir = config_dict['project_root_dir']
     script_name = config_dict['script_name']
-    acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
-    logfile_name = "_".join(
-        [
-            get_timestamp(time_only=True),
-            acronym,
-            "s" + str(config_dict['seed']),
-            "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
-            "n_var_cells" + str(config_dict['n_variable_power_cells']),
-        ])
+    experiment_description = config_dict['experiment_description']
+    if debug_logger:
+        logfile_name = "_".join(
+            [
+                time_now,
+                "debug",
+                script_name
+            ])
+    else:
+        # if experiment_description starts with "test_", then remove the "test_" from the acronym, but prefix the acronym with "test_"
+        if experiment_description.startswith("test_"):
+            acronym = "test_" + ''.join(word[0] for word in config_dict['experiment_description'].split('_')[1:])
+        else:
+            acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
+        
+
+        logfile_name = "_".join(
+            [
+                time_now,
+                acronym,
+                # Add the experiment_version to the logfile name
+                "v" + str(config_dict['experiment_version']),
+                "s" + str(config_dict['seed']),
+                "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
+                "n_var_cells" + str(config_dict['n_variable_power_cells']),
+            ])
     
-    logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
+    # if config_dict["experiment_description"] begins with test_, then add `_test` to the logfile_path
+    if config_dict["experiment_description"].startswith("test_"):
+        logfile_path = f"{project_root_dir}/_test/data/output/{experiment_description}/{date_now}/".replace(".", "_")
+    else:
+        logfile_path = f"{project_root_dir}/data/output/{experiment_description}/{date_now}/".replace(".", "_")
     
     if not os.path.exists(logfile_path):
         os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
+
+    logfile_path = os.path.join(logfile_path, logfile_name)
         
     return logfile_path
 
@@ -124,13 +132,13 @@ class Cellv2(Cell):
         Changes the lookup table used by NR_5G_standard_functions.MCS_to_Qm_table_64QAM
         """
         if mcs_table_number == 1:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_1     # same as LTE
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_1     # same as LTE
         elif mcs_table_number == 2:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_2     # 5G NR; 256QAM
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_2     # 5G NR; 256QAM
         elif mcs_table_number == 3:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_3     # 5G NR; 64QAM LowSE/RedCap (e.g. IoT devices)
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_3     # 5G NR; 64QAM LowSE/RedCap (e.g. IoT devices)
         elif mcs_table_number == 4:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_4     # 5G NR; 1024QAM
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_4     # 5G NR; 1024QAM
         # print(f'Setting Cell[{self.i}] MCS table to: table-{mcs_table_number}')
         return
     
@@ -177,7 +185,7 @@ class Cellv2(Cell):
         """
         Returns the throughput of a cell in the current timestep.
         """
-        cell_throughput = 0
+        cell_throughput = 0.0
         for ue_i in self.attached:
             ue_tp_check = self.get_UE_throughput(ue_i)
             if ue_tp_check is not None:
@@ -339,46 +347,46 @@ class CellEnergyModel:
 
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         self.cell_id = self.cell.i
-        logging.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
+        kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
         if self.cell.get_power_dBm() >= 30.0:
-            logging.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
+            kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
 
             self.cell_type = 'MACRO'
-            logging.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = MacroCellParameters()
-            logging.debug("Cell[%s] params set to %s.",
+            kiss_debugger.debug("Cell[%s] params set to %s.",
                           cell.i, self.params.__class__.__name__)
 
         else:
-            logging.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
+            kiss_debugger.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
 
             self.cell_type = 'SMALL'
-            logging.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = SmallCellParameters()
-            logging.debug("Cell[%s] params set to %s.",
+            kiss_debugger.debug("Cell[%s] params set to %s.",
                           self.cell.i, self.params.__class__.__name__)
 
         # List of params to store
         self.CELL_POWER_OUT_DBM_MAX = self.params.p_max_dbm
-        logging.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
+        kiss_debugger.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
                       self.cell.i, self.CELL_POWER_OUT_DBM_MAX)
 
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = self.params.power_static_watts / \
             1000  # baseline energy use
-        logging.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
+        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
                       self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
 
         # The load based power consumption
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = self.trx_chain_power_dynamic_kW()
-        logging.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
+        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
                       self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
 
         # Calculate the starting cell power
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        logging.debug(
+        kiss_debugger.debug(
             "Starting power consumption for Cell[%s] (kW): %s", self.cell.i, self.cell_power_kW)
 
         # END of INIT
@@ -532,7 +540,7 @@ class CellEnergyModel:
             # Calculate the total power consumption of the cell
             self.cell_power_kW = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
             
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
             return
 
@@ -540,7 +548,7 @@ class CellEnergyModel:
         # Update the cell power as normal
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.trx_chain_power_dynamic_kW())
-        logging.debug(
+        kiss_debugger.debug(
             'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
         
 
@@ -549,12 +557,12 @@ class CellEnergyModel:
         Returns the power consumption (in kW) of the cell at a given time.
         """
         if time == 0:
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption at t=0 is %s', self.cell.i, self.cell_power_kW)
             return self.cell_power_kW
         else:
             self.update_cell_power_kW()
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption at t=%s is %s', self.cell.i, time, self.cell_power_kW)
             return self.cell_power_kW
 
@@ -563,7 +571,7 @@ class CellEnergyModel:
             if x.i == self.cell_id:
                 self.update_cell_power_kW()
             else:
-                logging.warning(
+                kiss_debugger.warning(
                     'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, self.cell_id)
                 raise ValueError(
                     'Cells can only update their own energy model instances! Check the cell_id.')
@@ -1109,13 +1117,13 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
 
     points = points[:expected_pts]
     
-    logging.debug(f"The while loop ran {loop_count} times.")
-    logging.debug(f"{remove_count} points were removed from the exclusion zone.")
+    kiss_debugger.debug(f"The while loop ran {loop_count} times.")
+    kiss_debugger.debug(f"{remove_count} points were removed from the exclusion zone.")
     
     return points
 
 
-def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
+def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0, plot: bool = False):
     """
     Create a hexagonal grid and plot it with a dashed circle.
 
@@ -1143,8 +1151,13 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     plotted with radius `sim_radius`.
 
     """
-    plt.ioff()
-    fig, ax = plt.subplots()
+    if plot:
+        fig, ax = plt.subplots()
+    else:
+        fig = None
+        ax = None
+    
+    from hexalattice.hexalattice import create_hex_grid
 
     hexgrid_xy, _ = create_hex_grid(nx=5,
                                     ny=5,
@@ -1157,17 +1170,22 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(
-        origin, sim_radius, fill=False, linestyle='--', color='r')
 
-    ax.add_patch(circle_dashed)
-    ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    # Factor to set the x,y-axis limits relative to the isd value.
-    ax_scaling = 3 * isd + 500
-    ax.set_xlim([-ax_scaling, ax_scaling])
-    ax.set_ylim([-ax_scaling, ax_scaling])
-    ax.set_aspect('equal')
-    return hexgrid_xy, fig
+    if plot:
+        circle_dashed = plt.Circle(
+            origin, sim_radius, fill=False, linestyle='--', color='r')
+
+        ax.add_patch(circle_dashed)
+        ax.scatter(hexgrid_x, hexgrid_y, marker='2')
+        # Factor to set the x,y-axis limits relative to the isd value.
+        ax_scaling = 3 * isd + 500
+        ax.set_xlim([-ax_scaling, ax_scaling])
+        ax.set_ylim([-ax_scaling, ax_scaling])
+        ax.set_aspect('equal')
+    
+        return hexgrid_xy, fig
+    else:
+        return hexgrid_xy, None
 
 
 def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
@@ -1264,6 +1282,7 @@ def main(config_dict):
     mme_strategy = config_dict["mme_strategy"]
     mme_anti_pingpong = config_dict["mme_anti_pingpong"]
     mme_verbosity = config_dict["mme_verbosity"]
+    plotting = config_dict["plotting"]
     plot_ues = config_dict["plot_ues"]
     plot_ues_start = config_dict["plot_ues_start"]
     plot_ues_end = config_dict["plot_ues_end"]
@@ -1366,7 +1385,8 @@ def main(config_dict):
     if plot_ues:
         plot_ues_fig(sim=sim, ue_ids_start=plot_ues_start, ue_ids_end=plot_ues_end ,show_labels=plot_ues_show_labels, labels_start=plot_ues_labels_start, labels_end=plot_ues_labels_end)
         fig_timestamp(fig=hexgrid_plot, author=plot_author)
-        fig_outfile_path = Path(data_output_logfile_path).with_suffix('.png')
+        file_name = os.path.splitext(data_output_logfile_path)[0]
+        fig_outfile_path = file_name + '.png'
         plt.savefig(fig_outfile_path)
         plt.close()
 
@@ -1396,5 +1416,71 @@ if __name__ == '__main__':
     with open(config_file, "r") as f:
         config = json.load(f)
 
+    # If debug_logging is enabled, create a logger object
+    if config["debug_logging"]:
+        try:
+            from logging_kiss import get_logger
+            # If successful, create a logger object
+            if callable(get_logger):
+                # Create a log file path
+                kiss_debugger_outfile_path = create_logfile_path(
+                    config_dict=config, 
+                    debug_logger=True
+                    )
+                # Create a logger object
+                kiss_debugger = get_logger(
+                    logger_name="kiss_debugger",
+                    logfile_path=kiss_debugger_outfile_path,
+                    log_level=config["debug_logging_level"],
+                    )
+        except ImportError:
+            print("logging_kiss not installed. debug_logging disabled.")
+            config["debug_logging"] = False
+
+
+    # Import plt if plotting is enabled
+    if config["plotting"]:
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("Matplotlib not installed. Plotting disabled.")
+            config["plotting"] = False
+
+    # Import kiss_phy_data_procedures if mcs_table_number is set
+    if config["mcs_table_number"] is not None:
+        try:
+            import kiss_phy_data_procedures
+        except ImportError:
+            print("kiss_phy_data_procedures not installed. mcs_table_number disabled.")
+            config["mcs_table_number"] = None
+    
+    # If line_profiler is enabled, import line_profiler
+    if config["line_profiler"]:
+        try:
+            import line_profiler
+            if callable(line_profiler):
+                # Method to profile a function
+                def profile_method(method):
+                    def wrapper(*args, **kwargs):
+                        lp = line_profiler.LineProfiler()
+                        lp_wrapper = lp(method)
+                        lp_wrapper(*args, **kwargs)
+                        lp.print_stats()
+                    return wrapper
+                # Use `@profile_method` to profile a function
+        except ImportError:
+            print("line_profiler not installed. line_profiler disabled.")
+            config["line_profiler"] = False
+
+    # Start timer
+    start_time = time()
+
+    # Run main
     main(config_dict=config)
+
+    # End timer
+    end_time = time()
+
+    # Log total time taken
+    kiss_debugger.info("Total time taken (s): {}".format(end_time - start_time))
 
