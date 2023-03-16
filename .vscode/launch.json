@@ -87,10 +87,10 @@
       "cwd": "${workspaceFolder}/KISS"
     },
     {
-      "name": "DEBUG: kiss_profiled.py with args",
+      "name": "DEBUG: kiss.py with args",
       "type": "python",
       "request": "launch",
-      "program": "${workspaceFolder}/KISS/kiss_profiled.py",
+      "program": "${workspaceFolder}/KISS/kiss.py",
       "args": [
         "-c",
         "_test/data/input/reduce_centre_cell_power/test_reduce_centre_cell_power_00.json"
