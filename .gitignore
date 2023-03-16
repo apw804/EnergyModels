@@ -13,3 +13,4 @@ Icon*
 KISS/__pycache__
 *.pyc
 *.fea
+*.pstats
