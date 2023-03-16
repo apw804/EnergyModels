@@ -10,57 +10,65 @@
 
 import argparse
 import dataclasses
-import os
 import json
-import logging
-import multiprocessing as mp
-from datetime import datetime
-from pathlib import Path
-from sys import stderr, stdout
-import time
+import os
+import datetime
 from types import NoneType
-import line_profiler
-
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import _bisect
 
 import numpy as np
 import pandas as pd
-from _PHY import phy_data_procedures
 from AIMM_simulator import *
-from attr import dataclass
 from hexalattice.hexalattice import *
 
-from utils_kiss import *
 
 
-
-logging.basicConfig(stream=stdout, level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-INFO_LOG = True
-DEBUG_LOG = False
+# Get a timestamp for the current time and date
+date_now = get_timestamp(date_only=True)
+time_now = get_timestamp(time_only=True)
 
 
-def create_logfile_path(config_dict):
+def create_logfile_path(config_dict, debug_logger: bool = False):
     """Create a path for the log file based on the config parameters"""
-    date = get_timestamp(date_only=True)
     project_root_dir = config_dict['project_root_dir']
     script_name = config_dict['script_name']
-    acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
-    logfile_name = "_".join(
-        [
-            # get_timestamp(time_only=True),
-            acronym,
-            "s" + str(config_dict['seed']),
-            "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
-            "n_var_cells" + str(config_dict['n_variable_power_cells']),
-        ])
+    experiment_description = config_dict['experiment_description']
+    if debug_logger:
+        logfile_name = "_".join(
+            [
+                time_now,
+                "debug",
+                script_name
+            ])
+    else:
+        # if experiment_description starts with "test_", then remove the "test_" from the acronym, but prefix the acronym with "test_"
+        if experiment_description.startswith("test_"):
+            acronym = "test_" + ''.join(word[0] for word in config_dict['experiment_description'].split('_')[1:])
+        else:
+            acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
+        
+
+        logfile_name = "_".join(
+            [
+                time_now,
+                acronym,
+                # Add the experiment_version to the logfile name
+                "v" + str(config_dict['experiment_version']),
+                "s" + str(config_dict['seed']),
+                "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
+                "n_var_cells" + str(config_dict['n_variable_power_cells']),
+            ])
     
-    logfile_path = f"{project_root_dir}/data/output/{script_name}/{date}/{logfile_name}".replace(".", "_")
+    # if config_dict["experiment_description"] begins with test_, then add `_test` to the logfile_path
+    if config_dict["experiment_description"].startswith("test_"):
+        logfile_path = f"{project_root_dir}/_test/data/output/{experiment_description}/{date_now}/".replace(".", "_")
+    else:
+        logfile_path = f"{project_root_dir}/data/output/{experiment_description}/{date_now}/".replace(".", "_")
     
     if not os.path.exists(logfile_path):
         os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
+
+    logfile_path = os.path.join(logfile_path, logfile_name)
         
     return logfile_path
 
@@ -119,13 +127,13 @@ class Cellv2(Cell):
         Changes the lookup table used by NR_5G_standard_functions.MCS_to_Qm_table_64QAM
         """
         if mcs_table_number == 1:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_1     # same as LTE
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_1     # same as LTE
         elif mcs_table_number == 2:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_2     # 5G NR; 256QAM
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_2     # 5G NR; 256QAM
         elif mcs_table_number == 3:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_3     # 5G NR; 64QAM LowSE/RedCap (e.g. IoT devices)
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_3     # 5G NR; 64QAM LowSE/RedCap (e.g. IoT devices)
         elif mcs_table_number == 4:
-            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = phy_data_procedures.mcs_table_4     # 5G NR; 1024QAM
+            NR_5G_standard_functions.MCS_to_Qm_table_64QAM = kiss_phy_data_procedures.mcs_table_4     # 5G NR; 1024QAM
         # print(f'Setting Cell[{self.i}] MCS table to: table-{mcs_table_number}')
         return
     
@@ -172,7 +180,7 @@ class Cellv2(Cell):
         """
         Returns the throughput of a cell in the current timestep.
         """
-        cell_throughput = 0
+        cell_throughput = 0.0
         for ue_i in self.attached:
             ue_tp_check = self.get_UE_throughput(ue_i)
             if ue_tp_check is not None:
@@ -308,14 +316,9 @@ class AMFv1(MME):
             yield self.sim.env.timeout(self.interval)
     
     def finalize(self):
-
-        start_time = time()
-
         self.detach_low_cqi_ue()
         super().finalize()
 
-        end_time = time()
-        print(f"AMFv1.finalize() function took {end_time - start_time:.4f} seconds to execute.")
 
 
 class CellEnergyModel:
@@ -339,46 +342,46 @@ class CellEnergyModel:
 
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         self.cell_id = self.cell.i
-        logging.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
+        kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
         if self.cell.get_power_dBm() >= 30.0:
-            logging.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
+            kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
 
             self.cell_type = 'MACRO'
-            logging.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = MacroCellParameters()
-            logging.debug("Cell[%s] params set to %s.",
+            kiss_debugger.debug("Cell[%s] params set to %s.",
                           cell.i, self.params.__class__.__name__)
 
         else:
-            logging.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
+            kiss_debugger.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
 
             self.cell_type = 'SMALL'
-            logging.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = SmallCellParameters()
-            logging.debug("Cell[%s] params set to %s.",
+            kiss_debugger.debug("Cell[%s] params set to %s.",
                           self.cell.i, self.params.__class__.__name__)
 
         # List of params to store
         self.CELL_POWER_OUT_DBM_MAX = self.params.p_max_dbm
-        logging.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
+        kiss_debugger.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
                       self.cell.i, self.CELL_POWER_OUT_DBM_MAX)
 
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = self.params.power_static_watts / \
             1000  # baseline energy use
-        logging.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
+        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
                       self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
 
         # The load based power consumption
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = self.trx_chain_power_dynamic_kW()
-        logging.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
+        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
                       self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
 
         # Calculate the starting cell power
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        logging.debug(
+        kiss_debugger.debug(
             "Starting power consumption for Cell[%s] (kW): %s", self.cell.i, self.cell_power_kW)
 
         # END of INIT
@@ -532,7 +535,7 @@ class CellEnergyModel:
             # Calculate the total power consumption of the cell
             self.cell_power_kW = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
             
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
             return
 
@@ -540,7 +543,7 @@ class CellEnergyModel:
         # Update the cell power as normal
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.trx_chain_power_dynamic_kW())
-        logging.debug(
+        kiss_debugger.debug(
             'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
         
 
@@ -549,12 +552,12 @@ class CellEnergyModel:
         Returns the power consumption (in kW) of the cell at a given time.
         """
         if time == 0:
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption at t=0 is %s', self.cell.i, self.cell_power_kW)
             return self.cell_power_kW
         else:
             self.update_cell_power_kW()
-            logging.debug(
+            kiss_debugger.debug(
                 'Cell[%s] power consumption at t=%s is %s', self.cell.i, time, self.cell_power_kW)
             return self.cell_power_kW
 
@@ -563,7 +566,7 @@ class CellEnergyModel:
             if x.i == self.cell_id:
                 self.update_cell_power_kW()
             else:
-                logging.warning(
+                kiss_debugger.warning(
                     'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, self.cell_id)
                 raise ValueError(
                     'Cells can only update their own energy model instances! Check the cell_id.')
@@ -614,15 +617,18 @@ class ChangeCellPower(Scenario):
         The main loop of the scenario, which changes the power of specified cells after a delay.
         """
         while True:
-            if self.sim.env.now < self.delay_time:
-                yield self.sim.wait(self.interval)
-            if self.sim.env.now >= self.delay_time:
+            while self.sim.env.now >= self.delay_time:
                 if isinstance(self.target_cells, list) or isinstance(self.target_cells, np.ndarray):
                     for i in self.target_cells:
                         self.sim.cells[i].set_power_dBm(self.new_power)
                 elif isinstance(self.target_cells, int):
                     self.sim.cells[self.target_cells].set_power_dBm(self.new_power)
-            yield self.sim.wait(self.interval)
+                else:
+                    raise ValueError(
+                        'The target_cells parameter must be a list, array, or integer.')
+                yield self.sim.env.timeout(self.interval)
+
+
 
 
 
@@ -740,9 +746,12 @@ class MyLogger(Logger):
         else:
             return max(0,min(28,int(28*cqi/15.0)))
 
-    def get_neighbour_cell_rsrp_rank(self, ue_id, neighbour_rank):
+
+
+    def get_neighbour_cell_rsrp_rank(self, ue_id):
         """
-        Returns the ID and RSRP of the neighbouring cell with the specified rank for the given UE.
+        Returns a list of tuples containing the ID and RSRP of neighbouring cells for the given UE,
+        with the highest RSRP value at position 0 for each cell in self.sim.cells.
 
         Parameters
         ----------
@@ -753,25 +762,35 @@ class MyLogger(Logger):
 
         Returns
         -------
-        tuple
-            A tuple containing the ID and RSRP of the neighbouring cell with the specified rank.
+        list
+            A list of tuples containing the ID and RSRP of neighbouring cells for the given UE.
             
         Notes
         -----
-        This function returns the neighbouring cell RSRP ranks, where index 0 is not the original serving cell.
+        This function returns the neighbouring cell RSRPs, where index 0 is not the original serving cell.
         """
         neighbour_cell_rsrp = []
         for cell in self.sim.cells:
             cell_id = cell.i
-            ue_rsrp = cell.get_RSRP_reports_dict()[ue_id]  # get current UE rsrp from neighbouring cells
-            neighbour_cell_rsrp += [[cell_id, ue_rsrp]]
-        neighbour_cell_rsrp.sort(key=lambda x: x[1], reverse=True)
-        neighbour_cell_rsrp.pop(0)
-        neighbour_id, neighbour_rsrp_dBm = neighbour_cell_rsrp[neighbour_rank]
-        return neighbour_id, neighbour_rsrp_dBm
+            # Skip the serving cell
+            if cell_id == self.sim.UEs[ue_id].serving_cell.i:
+                continue
+            # Skip cells that have no entry for the given UE
+            if ue_id not in cell.reports["rsrp"]:
+                continue
+            # Skip cells that have no RSRP value for the given UE
+            ue_rsrp = cell.reports["rsrp"][ue_id][1]
+            if ue_rsrp == -np.inf:
+                continue
+            # Add the cell to the list if it doesn't exist already
+            if not any(cell_id == cell_tuple[1] for cell_tuple in neighbour_cell_rsrp):
+                # Insert (rsrp, cell_id) into the neighbour_cell_rsrp list, such that the list is sorted by rsrp in descending order
+                neighbour_cell_rsrp.insert(bisect_left(neighbour_cell_rsrp, (ue_rsrp, cell_id)), (ue_rsrp, cell_id))
+
+        return neighbour_cell_rsrp
 
 
-    
+
     def get_cell_data_attached_UEs(self, cell):
         """
         Returns a list of data for each attached UE in a cell
@@ -791,9 +810,9 @@ class MyLogger(Logger):
             d2sc = np.linalg.norm(sc_xy - ue_xy)                            # current UE distance to serving_cell
             ue_tp = serving_cell.get_UE_throughput(attached_ue_id)          # current UE throughput ('fundamental')
             sc_power = serving_cell.get_power_dBm()                         # current UE serving_cell transmit power
-            sc_rsrp = serving_cell.get_RSRP_reports_dict()[ue_id]           # current UE rsrp from serving_cell
-            neigh1_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 0)[1]    # current UE neighbouring cell 1 rsrp
-            neigh2_rsrp = self.get_neighbour_cell_rsrp_rank(ue_id, 1)[1]    # current UE neighbouring cell 2 rsrp
+            sc_rsrp = serving_cell.get_rsrp(ue_id)                          # current UE rsrp from serving_cell
+            neigh1_rsrp = neigh_rsrp_array[-1][0]    
+            neigh2_rsrp = neigh_rsrp_array[-2][0]    
             noise = UE.noise_power_dBm                                      # current UE thermal noise
             sinr = UE.sinr_dB                                               # current UE sinr from serving_cell
             cqi = UE.cqi                                                    # current UE cqi from serving_cell
@@ -908,7 +927,6 @@ class MyLogger(Logger):
         '''
         Function called at end of simulation, to implement any required finalization actions.
         '''
-        start_time = time()
 
         # print(f'Finalize time={self.sim.env.now}')
 
@@ -937,8 +955,6 @@ class MyLogger(Logger):
         # Write the MyLogger dataframe to TSV file
         df1.to_csv(self.logfile_path, sep="\t", index=False, mode='w')
 
-        end_time = time()
-        print(f"MyLogger.finalize() function took {end_time - start_time:.4f} seconds to execute.")
 
 
 
@@ -1083,13 +1099,13 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
 
     points = points[:expected_pts]
     
-    logging.debug(f"The while loop ran {loop_count} times.")
-    logging.debug(f"{remove_count} points were removed from the exclusion zone.")
+    kiss_debugger.debug(f"The while loop ran {loop_count} times.")
+    kiss_debugger.debug(f"{remove_count} points were removed from the exclusion zone.")
     
     return points
 
 
-def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0):
+def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0, plot: bool = False):
     """
     Create a hexagonal grid and plot it with a dashed circle.
 
@@ -1117,8 +1133,13 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     plotted with radius `sim_radius`.
 
     """
-    plt.ioff()
-    fig, ax = plt.subplots()
+    if plot:
+        fig, ax = plt.subplots()
+    else:
+        fig = None
+        ax = None
+    
+    from hexalattice.hexalattice import create_hex_grid
 
     hexgrid_xy, _ = create_hex_grid(nx=5,
                                     ny=5,
@@ -1131,17 +1152,22 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
     hexgrid_x = hexgrid_xy[:, 0]
     hexgrid_y = hexgrid_xy[:, 1]
-    circle_dashed = plt.Circle(
-        origin, sim_radius, fill=False, linestyle='--', color='r')
 
-    ax.add_patch(circle_dashed)
-    ax.scatter(hexgrid_x, hexgrid_y, marker='2')
-    # Factor to set the x,y-axis limits relative to the isd value.
-    ax_scaling = 3 * isd + 500
-    ax.set_xlim([-ax_scaling, ax_scaling])
-    ax.set_ylim([-ax_scaling, ax_scaling])
-    ax.set_aspect('equal')
-    return hexgrid_xy, fig
+    if plot:
+        circle_dashed = plt.Circle(
+            origin, sim_radius, fill=False, linestyle='--', color='r')
+
+        ax.add_patch(circle_dashed)
+        ax.scatter(hexgrid_x, hexgrid_y, marker='2')
+        # Factor to set the x,y-axis limits relative to the isd value.
+        ax_scaling = 3 * isd + 500
+        ax.set_xlim([-ax_scaling, ax_scaling])
+        ax.set_ylim([-ax_scaling, ax_scaling])
+        ax.set_aspect('equal')
+    
+        return hexgrid_xy, fig
+    else:
+        return hexgrid_xy, None
 
 
 def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
@@ -1263,7 +1289,7 @@ def main(config_dict):
         x, y = centre
         z = h_BS
         # Create the cell
-        sim.make_cellv2(interval=base_interval,xyz=[x, y, z], power_dBm=power_dBm)
+        sim.make_cellv2(interval=base_interval*0.1,xyz=[x, y, z], power_dBm=power_dBm)  # interval=base_interval*0.1 (scaled down to see if rsrp dictionaries get cleared)
 
     # Create a dictionary of cell-specific energy models
     cell_energy_models_dict = {}
@@ -1272,7 +1298,9 @@ def main(config_dict):
         cell.set_f_callback(cell_energy_models_dict[cell.i].f_callback(cell))
 
     # Generate UE positions using PPP
-    ue_ppp = generate_ppp_points(sim=sim, expected_pts=nues, sim_radius=sim_radius)
+    ue_ppp = generate_ppp_points(sim=sim, 
+                                 expected_pts=nues, 
+                                 sim_radius=sim_radius,)
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, h_UT
@@ -1336,7 +1364,8 @@ def main(config_dict):
     if plot_ues:
         plot_ues_fig(sim=sim, ue_ids_start=plot_ues_start, ue_ids_end=plot_ues_end ,show_labels=plot_ues_show_labels, labels_start=plot_ues_labels_start, labels_end=plot_ues_labels_end)
         fig_timestamp(fig=hexgrid_plot, author=plot_author)
-        fig_outfile_path = Path(data_output_logfile_path).with_suffix('.png')
+        file_name = os.path.splitext(data_output_logfile_path)[0]
+        fig_outfile_path = file_name + '.png'
         plt.savefig(fig_outfile_path)
         plt.close()
 
