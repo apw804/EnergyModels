@@ -17,10 +17,14 @@ import multiprocessing as mp
 from datetime import datetime
 from pathlib import Path
 from sys import stderr, stdout
-from time import localtime, strftime
+import time
 from types import NoneType
+import line_profiler
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 from _PHY import phy_data_procedures
@@ -304,8 +308,14 @@ class AMFv1(MME):
             yield self.sim.env.timeout(self.interval)
     
     def finalize(self):
+
+        start_time = time()
+
         self.detach_low_cqi_ue()
         super().finalize()
+
+        end_time = time()
+        print(f"AMFv1.finalize() function took {end_time - start_time:.4f} seconds to execute.")
 
 
 class CellEnergyModel:
@@ -893,10 +903,13 @@ class MyLogger(Logger):
             print(f'logger time={self.sim.env.now}')
             yield self.sim.wait(self.logging_interval)
 
+
     def finalize(self):
         '''
         Function called at end of simulation, to implement any required finalization actions.
         '''
+        start_time = time()
+
         # print(f'Finalize time={self.sim.env.now}')
 
         # Run routine for final time step
@@ -924,9 +937,9 @@ class MyLogger(Logger):
         # Write the MyLogger dataframe to TSV file
         df1.to_csv(self.logfile_path, sep="\t", index=False, mode='w')
 
-        
-       #  Store a copy of the final dataframe in the simulation object
-        self.sim.dataframe = df1.copy
+        end_time = time()
+        print(f"MyLogger.finalize() function took {end_time - start_time:.4f} seconds to execute.")
+
 
 
 # END MyLogger class
@@ -1212,7 +1225,7 @@ def main(config_dict):
     power_dBm = config_dict["constant_cell_power_dBm"]
     variable_cell_power_dBm = config_dict["variable_cell_power_dBm"]
     n_variable_power_cells = config_dict["n_variable_power_cells"]
-    variable_power_target_cells_list = config_dict["variable_power_target_cells_list"],
+    variable_power_target_cells_list = config_dict["variable_power_target_cells_list"]
     nues = config_dict["nues"]
     until = config_dict["until"]
     base_interval = config_dict["base_interval"]
@@ -1335,9 +1348,21 @@ def main(config_dict):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Run kiss.py against a specified config value.')
+
+    parser.add_argument(
+        '-c',
+        '--config-file',
+        type=str,
+        required=True,
+        default='KISS/_test/data/input/kiss/test_kiss.json'
+        )
+    
+    args = parser.parse_args()
 
     # Load the config file
-    config_file = "KISS/_test/data/input/kiss/test_kiss.json"
+    config_file = args.config_file
     with open(config_file, "r") as f:
         config = json.load(f)
 
