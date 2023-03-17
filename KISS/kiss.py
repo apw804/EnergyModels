@@ -609,10 +609,13 @@ class ChangeCellPower(Scenario):
         self.random_cell = self.sim.rng.integers(low=0, high=len(self.sim.cells))
         self.outer_ring = [0, 1, 2, 3, 6, 7, 11, 12, 15, 16, 17, 18]
         if self.target_cells is None:
+            # If n_cells is specified, choose n_cells random cells
             if n_cells is not None and n_cells > 0:
                 self.target_cells = self.sim.rng.choice(len(self.sim.cells), n_cells, replace=False)
+            # If cells is specified, choose the specified cells
             elif cells is not None:
                     self.target_cells = cells
+            # If neither n_cells or cells is specified, choose a random cell
             else:
                 self.target_cells = self.random_cell
 
