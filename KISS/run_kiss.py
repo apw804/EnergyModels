@@ -101,6 +101,8 @@ def run_kiss(dict):
 
 
 
+import multiprocessing as mp
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(
@@ -121,8 +123,8 @@ if __name__ == '__main__':
     # Start the timer
     start_time = time.time()
 
-    for config_dict in config_dict_list:
-        run_kiss(config_dict)
+    with mp.Pool(processes=4, maxtasksperchild=1) as pool:
+        pool.map(run_kiss, config_dict_list)
 
     # Stop the timer
     end_time = time.time()
