@@ -55,13 +55,11 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
 
         logfile_name = "_".join(
             [
-                time_now,
                 acronym,
-                # Add the experiment_version to the logfile name
-                "v" + str(config_dict['experiment_version']).replace(".", "_"),
                 "s" + str(config_dict['seed']),
                 "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
                 "n_var_cells" + str(config_dict['n_variable_power_cells']),
+                time_now,
             ])
     
     # if config_dict["experiment_description"] begins with test_, then add `_test` to the logfile_path
@@ -1201,7 +1199,7 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
             for i, (x, y) in enumerate(hexgrid_xy):
                 plt.text(x + isd / 3 - 0.3e3, y - isd /3 + 0.33e3, str(i), fontsize=10, ha='center', va='center', color='purple', alpha=0.63, weight='bold')
         
-        return
+        return hexgrid_xy, None
 
 
 
