@@ -87,10 +87,22 @@
       "cwd": "${workspaceFolder}/KISS"
     },
     {
-      "name": "DEBUG: kiss.py with args",
+      "name": "DEBUG: kiss.py with test args",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/KISS/kiss.py",
+      "args": [
+        "-c",
+        "_test/data/input/kiss/test_kiss.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
+    {
+      "name": "TEST: run_kiss.py with test_reduce_centre_cell_power",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
       "args": [
         "-c",
         "_test/data/input/reduce_centre_cell_power/test_reduce_centre_cell_power_00.json"
