@@ -48,7 +48,7 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
     else:
         # if experiment_description starts with "test_", then remove the "test_" from the acronym, but prefix the acronym with "test_"
         if experiment_description.startswith("test_"):
-            acronym = "test_" + ''.join(word[0] for word in config_dict['experiment_description'].split('_')[1:])
+            acronym = "test_" + ''.join(config_dict['experiment_description'])
         else:
             acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
         
@@ -58,7 +58,7 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
                 time_now,
                 acronym,
                 # Add the experiment_version to the logfile name
-                "v" + str(config_dict['experiment_version']),
+                "v" + str(config_dict['experiment_version']).replace(".", "_"),
                 "s" + str(config_dict['seed']),
                 "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
                 "n_var_cells" + str(config_dict['n_variable_power_cells']),
@@ -347,6 +347,7 @@ class CellEnergyModel:
 
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         self.cell_id = self.cell.i
+
         kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
         if self.cell.get_power_dBm() >= 30.0:
             kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
@@ -1123,7 +1124,7 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
     return points
 
 
-def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0, plot: bool = False):
+def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0, plot: bool = False, watermark: bool = False):
     """
     Create a hexagonal grid and plot it with a dashed circle.
 
@@ -1135,13 +1136,17 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
         The distance between two adjacent hexagons (in meters), by default 500.0
     sim_radius : float, optional
         The radius of the simulation area (in meters), by default 1000.0
+    plot : bool, optional
+        Whether to plot the hexagonal grid and the dashed circle, by default False
+    watermark : bool, optional
+        Whether to add watermark numbers to each hexagon, by default False
 
     Returns
     -------
     hexgrid_xy : numpy.ndarray
         A 2D array containing the x and y coordinates of the hexagonal grid.
-    fig : matplotlib.figure.Figure
-        The matplotlib Figure object containing the plot.
+    fig : matplotlib.figure.Figure or None
+        The matplotlib Figure object containing the plot, or None if plot=False.
 
     Notes
     -----
@@ -1177,6 +1182,12 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
 
         ax.add_patch(circle_dashed)
         ax.scatter(hexgrid_x, hexgrid_y, marker='2')
+        
+        if watermark:
+            # Add watermark numbers to each hexagon
+            for i, (x, y) in enumerate(hexgrid_xy):
+                ax.text(x + isd / 3 - 0.3e3, y - isd /3 + 0.33e3, str(i), fontsize=10, ha='center', va='center', color='purple', alpha=0.63, weight='bold')
+        
         # Factor to set the x,y-axis limits relative to the isd value.
         ax_scaling = 3 * isd + 500
         ax.set_xlim([-ax_scaling, ax_scaling])
@@ -1185,7 +1196,13 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
     
         return hexgrid_xy, fig
     else:
-        return hexgrid_xy, None
+        if watermark:
+            # Add watermark numbers to each hexagon
+            for i, (x, y) in enumerate(hexgrid_xy):
+                plt.text(x + isd / 3 - 0.3e3, y - isd /3 + 0.33e3, str(i), fontsize=10, ha='center', va='center', color='purple', alpha=0.63, weight='bold')
+        
+        return
+
 
 
 def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
@@ -1213,7 +1230,7 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
     -------
     None
     """
-    date = datetime.now().strftime('%Y-%m-%d %H:%M')
+    date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
     fig.text(
         0.01, 0.005, f"{prespace}{author} {date}",
         ha='left', va='bottom', fontsize=fontsize, color=color,
@@ -1249,7 +1266,7 @@ def plot_ues_fig(sim, ue_ids_start=None, ue_ids_end=None, show_labels=True, labe
     ue_x_list = [ue.xyz[0] for ue in ue_objs_list]
     ue_y_list = [ue.xyz[1] for ue in ue_objs_list]
     ue_xy_list = [ue.xyz[:2] for ue in ue_objs_list]
-    plt.scatter(x=ue_x_list, y=ue_y_list, color='red', s=2.0)
+    plt.scatter(x=ue_x_list, y=ue_y_list, color='red', alpha= 0.3, s=2.0)
     if show_labels:
         if labels_start is None and labels_end is None:
             labels_start = 0
@@ -1283,6 +1300,7 @@ def main(config_dict):
     mme_anti_pingpong = config_dict["mme_anti_pingpong"]
     mme_verbosity = config_dict["mme_verbosity"]
     plotting = config_dict["plotting"]
+    plot_cell_id_watermark = config_dict["plot_cell_id_watermark"]
     plot_ues = config_dict["plot_ues"]
     plot_ues_start = config_dict["plot_ues_start"]
     plot_ues_end = config_dict["plot_ues_end"]
@@ -1303,7 +1321,7 @@ def main(config_dict):
     pl_uma_nlos = UMa_pathloss(LOS=False)
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
-    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius)
+    sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius, plot=plotting, watermark=plot_cell_id_watermark)
     for centre in sim_hexgrid_centres[:]:
         x, y = centre
         z = h_BS
@@ -1388,7 +1406,7 @@ def main(config_dict):
         file_name = os.path.splitext(data_output_logfile_path)[0]
         fig_outfile_path = file_name + '.png'
         plt.savefig(fig_outfile_path)
-        plt.close()
+
 
     # Run simulator
     sim.run(until=until)
@@ -1436,6 +1454,18 @@ if __name__ == '__main__':
         except ImportError:
             print("logging_kiss not installed. debug_logging disabled.")
             config["debug_logging"] = False
+    else:
+        # If debug_logging is disabled, create a dummy logger object
+        import logging
+        class DummyLogger(logging.Logger):
+            def __init__(self, name):
+                super().__init__(name, level=logging.NOTSET)
+
+            def _log(self, *args, **kwargs):
+                pass
+
+        # Create a DummyLogger object
+        kiss_debugger = DummyLogger("kiss_debugger")
 
 
     # Import plt if plotting is enabled
