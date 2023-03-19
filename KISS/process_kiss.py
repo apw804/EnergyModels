@@ -29,7 +29,8 @@ def read_files(directory, file_starts_with):
              for filename in os.listdir(directory)
              if filename.endswith('.tsv') and 
                 filename.startswith(file_starts_with)]
-    logger.info(f'Read {len(files)} files.')
+    if callable(logger.info):
+        logger.info(f'Read {len(files)} files.')
     return files
 
 
@@ -96,6 +97,8 @@ def main(directory, file_starts_with, logging_enabled=True,
     if logging_enabled:
         logger.info('Finished processing files.')
 
+    return master_df
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -138,7 +141,7 @@ if __name__ == '__main__':
     script_name = Path(__file__).resolve().stem
     if args.file_starts_with == 'test_':
         script_name = f'test_{script_name}'
-    logger = get_logger(logger_name=script_name, log_dir=args.outfile_path)
+    logger = get_logger(logger_name=script_name, logfile_path=args.outfile_path)
 
     main(
         directory=args.dir, 
