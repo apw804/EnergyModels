@@ -72,6 +72,8 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
         os.makedirs(os.path.dirname(logfile_path), exist_ok=True)
 
     logfile_path = os.path.join(logfile_path, logfile_name)
+
+    logfile_path = logfile_path.replace("-", "_").replace(" ", "_").replace(":", "_").replace(".", "_")
         
     return logfile_path
 
