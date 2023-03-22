@@ -65,21 +65,22 @@
 # WORKING
 
 
-# P_0 function
-# ============
-# print(P_0(M_sec = Macro.M_sec,
-#           P_1 = Macro.P1, 
-#           delta_p = Macro.delta_p_10MHz, 
-#           P_max = Macro.P_max))
-# = 877.1999999999999
+# P1 function
+# ===========
+# print(P1(D=1))
+# = 62.8780131482834
+# This is the P1 value per antenna / radio chain in watts.
 # WORKING
 
 
-# print(param_P_1(P_0=P_0(M_sec=Macro.M_sec,
-#                         P_1=Macro.P1,
-#                         delta_p=Macro.delta_p_10MHz,
-#                         P_max=Macro.P_max),
-#                 delta_P=Macro.delta_p_10MHz, 
-#                 P_max=Macro.P_max))
-# = 1045.1999999999998
+# params_P_model function
+# =======================
+# print(param_P_model(M_sec = Macro.M_sec,
+#                     P_1 = P1(D=1, 
+#                              W=10000),
+#                     delta_p = Macro.delta_p_10MHz,
+#                     P_max = Macro.P_max,
+#                     chi=1.0))
+# = 188.6340394448502 - This is the P_model value per antenna / radio chain 
+#                       and per Sector - in watts.
 # WORKING
