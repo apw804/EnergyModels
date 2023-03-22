@@ -135,10 +135,6 @@ def param_P_1(P_0: float, delta_P: float = Macro.delta_p_10MHz,
     """
     return P_0 + delta_P * P_max
 
-# print(param_P_1(P_0=P_sleep(model='Holtkamp', D=1, P_sleep_zero=Macro.P_sleep_zero)
-#                 delta_P=Macro.delta_p_10MHz, 
-#                 P_max=Macro.P_max))
-
 
 
 
