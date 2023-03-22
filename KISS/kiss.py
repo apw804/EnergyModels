@@ -348,47 +348,47 @@ class CellEnergyModel:
         # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         self.cell_id = self.cell.i
 
-        kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
+        # kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
         if self.cell.get_power_dBm() >= 30.0:
-            kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
+            # kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
 
             self.cell_type = 'MACRO'
-            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = MacroCellParameters()
-            kiss_debugger.debug("Cell[%s] params set to %s.",
-                          cell.i, self.params.__class__.__name__)
+            # kiss_debugger.debug("Cell[%s] params set to %s.",
+            #              cell.i, self.params.__class__.__name__)
 
         else:
-            kiss_debugger.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
+            # kiss_debugger.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
 
             self.cell_type = 'SMALL'
-            kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
+            # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
             self.params = SmallCellParameters()
-            kiss_debugger.debug("Cell[%s] params set to %s.",
-                          self.cell.i, self.params.__class__.__name__)
+            # kiss_debugger.debug("Cell[%s] params set to %s.",
+            #             self.cell.i, self.params.__class__.__name__)
 
         # List of params to store
         self.CELL_POWER_OUT_DBM_MAX = self.params.p_max_dbm
-        kiss_debugger.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
-                      self.cell.i, self.CELL_POWER_OUT_DBM_MAX)
+        # kiss_debugger.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
+        #             self.cell.i, self.CELL_POWER_OUT_DBM_MAX)
 
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = self.params.power_static_watts / \
             1000  # baseline energy use
-        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
-                      self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
+        # kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
+        #              self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
 
         # The load based power consumption
         self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = self.trx_chain_power_dynamic_kW()
-        kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
-                      self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
+        # kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
+        #              self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
 
         # Calculate the starting cell power
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        kiss_debugger.debug(
-            "Starting power consumption for Cell[%s] (kW): %s", self.cell.i, self.cell_power_kW)
+        # kiss_debugger.debug(
+        #    "Starting power consumption for Cell[%s] (kW): %s", self.cell.i, self.cell_power_kW)
 
         # END of INIT
 
@@ -541,16 +541,16 @@ class CellEnergyModel:
             # Calculate the total power consumption of the cell
             self.cell_power_kW = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
             
-            kiss_debugger.debug(
-                'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
+            # kiss_debugger.debug(
+            #    'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
             return
 
         # If the cell sleep_mode is 0, then the cell is in active mode
         # Update the cell power as normal
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
             self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.trx_chain_power_dynamic_kW())
-        kiss_debugger.debug(
-            'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
+        # kiss_debugger.debug(
+        #    'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
         
 
     def get_cell_power_kW(self, time):
@@ -558,13 +558,13 @@ class CellEnergyModel:
         Returns the power consumption (in kW) of the cell at a given time.
         """
         if time == 0:
-            kiss_debugger.debug(
-                'Cell[%s] power consumption at t=0 is %s', self.cell.i, self.cell_power_kW)
+            # kiss_debugger.debug(
+            #   'Cell[%s] power consumption at t=0 is %s', self.cell.i, self.cell_power_kW)
             return self.cell_power_kW
         else:
             self.update_cell_power_kW()
-            kiss_debugger.debug(
-                'Cell[%s] power consumption at t=%s is %s', self.cell.i, time, self.cell_power_kW)
+            # kiss_debugger.debug(
+            #    'Cell[%s] power consumption at t=%s is %s', self.cell.i, time, self.cell_power_kW)
             return self.cell_power_kW
 
     def f_callback(self, x, **kwargs):
@@ -572,8 +572,8 @@ class CellEnergyModel:
             if x.i == self.cell_id:
                 self.update_cell_power_kW()
             else:
-                kiss_debugger.warning(
-                    'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, self.cell_id)
+                # kiss_debugger.warning(
+                #    'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, self.cell_id)
                 raise ValueError(
                     'Cells can only update their own energy model instances! Check the cell_id.')
             
@@ -1121,8 +1121,8 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
 
     points = points[:expected_pts]
     
-    kiss_debugger.debug(f"The while loop ran {loop_count} times.")
-    kiss_debugger.debug(f"{remove_count} points were removed from the exclusion zone.")
+    # kiss_debugger.debug(f"The while loop ran {loop_count} times.")
+    # kiss_debugger.debug(f"{remove_count} points were removed from the exclusion zone.")
     
     return points
 
@@ -1438,37 +1438,37 @@ if __name__ == '__main__':
         config = json.load(f)
 
     # If debug_logging is enabled, create a logger object
-    if config["debug_logging"]:
-        try:
-            from logging_kiss import get_logger
+    # if config["debug_logging"]:
+    #     try:
+    #         from logging_kiss import get_logger
             # If successful, create a logger object
-            if callable(get_logger):
+            #if callable(get_logger):
                 # Create a log file path
-                kiss_debugger_outfile_path = create_logfile_path(
-                    config_dict=config, 
-                    debug_logger=True
-                    )
-                # Create a logger object
-                kiss_debugger = get_logger(
-                    logger_name="kiss_debugger",
-                    logfile_path=kiss_debugger_outfile_path,
-                    log_level=config["debug_logging_level"],
-                    )
-        except ImportError:
-            print("logging_kiss not installed. debug_logging disabled.")
-            config["debug_logging"] = False
-    else:
-        # If debug_logging is disabled, create a dummy logger object
-        import logging
-        class DummyLogger(logging.Logger):
-            def __init__(self, name):
-                super().__init__(name, level=logging.NOTSET)
+                #  kiss_debugger_outfile_path = create_logfile_path(
+                #     config_dict=config, 
+                #     debug_logger=True
+                #     )
+                #  Create a logger object
+                #  kiss_debugger = get_logger(
+                #     logger_name="# kiss_debugger",
+                #     logfile_path=# kiss_debugger_outfile_path,
+                #     log_level=config["debug_logging_level"],
+                #     )
+    #     except ImportError:
+    #         print("logging_kiss not installed. debug_logging disabled.")
+    #         config["debug_logging"] = False
+    # else:
+    #     # If debug_logging is disabled, create a dummy logger object
+    #     import logging
+    #     class DummyLogger(logging.Logger):
+    #         def __init__(self, name):
+    #             super().__init__(name, level=logging.NOTSET)
 
-            def _log(self, *args, **kwargs):
-                pass
+    #         def _log(self, *args, **kwargs):
+    #             pass
 
         # Create a DummyLogger object
-        kiss_debugger = DummyLogger("kiss_debugger")
+        # kiss_debugger = DummyLogger("# kiss_debugger")
 
 
     # Import plt if plotting is enabled
@@ -1515,5 +1515,5 @@ if __name__ == '__main__':
     end_time = time()
 
     # Log total time taken
-    kiss_debugger.info("Total time taken (s): {}".format(end_time - start_time))
+    # kiss_debugger.info("Total time taken (s): {}".format(end_time - start_time))
 
