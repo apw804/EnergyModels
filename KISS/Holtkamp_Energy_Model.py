@@ -38,7 +38,7 @@ class Macro:
     sigma_MS:       float =   0.075
     M_sec:            int =   3
     P_max:          float =  40.0    # watts
-    P1:             float = 460.0    # watts
+    P1:             float = 460.4    # watts
     delta_p_10MHz:  float =   4.2
     P_sleep_zero:   float = 324.0    # watts
 
@@ -59,9 +59,6 @@ def P_sleep(D, P_sleep_zero):
         P_sleep matches the complex model value for two antennas" 
         (Holtkamp et al. 2013).
     """
-
-
-
     return D * P_sleep_zero
 
 
@@ -110,6 +107,25 @@ def P_BB(D: int = 1, W: int = 10e3, P_prime_BB: float = Macro.P_prime_BB):
     """
     return  D * (W / 10e3) * P_prime_BB
 
+def P_0(M_sec, P_1, delta_p, P_max):
+    """
+    Returns the load-independent power consumption of the base station in 
+    watts.
+
+    Parameters
+    ----------
+    M_sec : int
+        Number of sectors.
+    P_1 : float
+        Maximum supply power consumption of the base station in watts.
+    delta_p : float
+        Linear gradient of power consumption.
+    P_max : float
+        Maximum total transmission power (watts).
+    """
+    chi = 0.0
+    return M_sec * (P_1 + delta_p * P_max * (chi - 1.0))
+
 
 def param_P_1(P_0: float, delta_P: float = Macro.delta_p_10MHz, 
                 P_max: float = Macro.P_max):
@@ -119,9 +135,11 @@ def param_P_1(P_0: float, delta_P: float = Macro.delta_p_10MHz,
     """
     return P_0 + delta_P * P_max
 
-print(param_P_1(P_0=P_sleep(model='Holtkamp', D=1, P_sleep_zero=Macro.P_sleep_zero)
-                delta_P=Macro.delta_p_10MHz, 
-                P_max=Macro.P_max))
+# print(param_P_1(P_0=P_sleep(model='Holtkamp', D=1, P_sleep_zero=Macro.P_sleep_zero)
+#                 delta_P=Macro.delta_p_10MHz, 
+#                 P_max=Macro.P_max))
+
+
 
 
 def complex_P_1(D: int, W: int = 10e3):

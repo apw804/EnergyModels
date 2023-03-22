@@ -64,3 +64,12 @@
 # = 29.4
 # WORKING
 
+# P_0 function
+# ============
+# print(P_0(M_sec = Macro.M_sec,
+#           P_1 = Macro.P1, 
+#           delta_p = Macro.delta_p_10MHz, 
+#           P_max = Macro.P_max))
+# = 877.1999999999999
+# WORKING
+
