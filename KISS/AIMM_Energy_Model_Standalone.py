@@ -205,26 +205,6 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         rotation=rotation,
         transform=fig.transFigure, alpha=alpha)
 
-def plot_and_save_results(data, labels, title, xlabel, ylabel, data_path, filename):
-    # Plot the results
-    fig, ax = plt.subplots(figsize=(10, 6))
-    fig_timestamp(fig, author='Kishan Sthankiya')
-    for i, d in enumerate(data):
-        ax.plot(d[0], d[1], label=labels[i], marker='+')
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.grid()
-    plt.legend()
-    plt.show()
-
-    # Save the figures to disk in the project folder with today's date and timestamp
-    figure_path = data_path.parent / "figures"
-    figure_path.mkdir(parents=True, exist_ok=True)
-    today = datetime.datetime.today().strftime("%Y_%m_%d")
-    now = datetime.datetime.now().strftime("%H_%M_%S")
-    fig.savefig(f"{figure_path}/{today}_{now}_{filename}.png", dpi=300)
-
 
 
 # Create a simulation
