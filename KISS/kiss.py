@@ -336,6 +336,8 @@ class CellEnergyModel:
         Cell instance which this model attaches to.
     interval: float
         Time interval between CellEnergyModel updates.
+    params: MacroCellParameters or SmallCellParameters
+        Parameters for the energy model.
     """
 
     def __init__(self, cell: Cellv2, interval=1.0, params = MacroCellParameters()):
@@ -365,7 +367,7 @@ class CellEnergyModel:
             self.cell_type = 'SMALL'
             # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
-            self.params = SmallCellParameters()
+            self.params = params
             # kiss_debugger.debug("Cell[%s] params set to %s.",
             #             self.cell.i, self.params.__class__.__name__)
 
@@ -456,14 +458,15 @@ class CellEnergyModel:
         """
         return self.cell.sleep_mode
 
-    def reset_energy_model_params(self):
+    def reset_energy_model_params(self, params):
         """
         Resets the energy model parameters to default values based on the __init__ power_dBm set.
         """
+        params = self.params
         if self.cell_type == 'MACRO':
-            self.params = MacroCellParameters()
+            self.params = params
         elif self.cell_type == 'SMALL':
-            self.params = SmallCellParameters()
+            self.params = params
     
 
     def update_cell_power_kW(self):
@@ -471,7 +474,7 @@ class CellEnergyModel:
         Updates the cell power consumption (in kW).
         """
         # Reset the energy model parameters to defaults
-        self.reset_energy_model_params()
+        self.reset_energy_model_params(params=self.params)
 
         # Get the cell sleep mode
         cell_sleep_mode = self.get_cell_sleep_mode()

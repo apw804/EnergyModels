@@ -54,7 +54,7 @@ def change_cell_power_dBm(max_cell_power_dBm):
     # Convert input dBm to watts
     cell_power_milliwatts = 10.0 ** (max_cell_power_dBm / 10.0)
     cell_power_watts = cell_power_milliwatts / 1000.0
-    print(f'Cell power: {cell_power_milliwatts:.2f} mW = {cell_power_watts:.2f} W')
+    # print(f'Cell power: {cell_power_milliwatts:.2f} mW = {cell_power_watts:.2f} W')
 
     # Get a range of floats from 0 to 40 watts in 1 watt increments
     power_range_watts = np.arange(0.0, cell_power_watts, 1.0)
@@ -66,38 +66,24 @@ def change_cell_power_dBm(max_cell_power_dBm):
     power_range_dBm = 10.0 * np.log10(power_range_milliwatts)
 
     # Make a list of the cell power consumption values
-    AIMM_standalone = []
+    AIMM_standalone_power_cons = []
 
     # For each value in the power range, calculate the cell power consumption
     for power in power_range_dBm:
         energy_cons = calculate_cell_power_consumption(power)
-        print(f'Cell output power: {power} dBm, Cell power consumption: {energy_cons} W')
-        AIMM_standalone.append((energy_cons))
+        print(f'Cell output power: {power:.2f} dBm, Cell power consumption: {energy_cons:.2f} W')
+        AIMM_standalone_power_cons.append((energy_cons))
     
-    return AIMM_standalone, power_range_dBm, power_range_watts
+    return AIMM_standalone_power_cons, power_range_dBm, power_range_watts
 
 
-def change_dataclass_param(param, max_value):
+def change_dataclass_param(param, max_value, step_ratio):
     """Change the value of a dataclass parameter."""
 
     # Construct a a range of values from 0 to the max value in increments of 1% of the max value
-    param_range = np.arange(0.0, max_value, max_value * 0.01)
+    param_range = np.arange(0.0, max_value, max_value * step_ratio)
 
-    # Create a list to store the results
-    AIMM_param = []
-
-    # For each value in the range, calculate the cell power consumption
-    for value in param_range:
-        # Set the dataclass parameter to the current value
-        MacroCellParamsStandalone.__setattr__(param, value)
-
-        # Calculate the cell power consumption
-        energy_cons = calculate_cell_power_consumption()
-
-        # Add the result to the list
-        AIMM_param.append((energy_cons))
-
-    return AIMM_param, param_range
+    return param_range
 
 
 
@@ -206,12 +192,48 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         transform=fig.transFigure, alpha=alpha)
 
 
-
 # Create a simulation
 sim = Sim()
 
-# Call the change_cell_power_dBm function
-AIMM_standalone, power_range_dBm, power_range_watts = change_cell_power_dBm(43.0)
+# Record the parameter that is going to change
+var_param = "eta_pa"
+
+# Call the change_dataclass_param function
+param_range = change_dataclass_param(param= var_param, max_value= 1.0, step_ratio= 0.1)
+
+# Create a list to store the results
+results = []
+
+# Loop through the parameter range
+for param in param_range:
+    # Access the MacroCellParamsStandalone dataclass, find the attribute that matches var_param and change its value to param
+    setattr(MacroCellParamsStandalone, var_param, param)
+
+    # Run for one iteration
+    AIMM_standalone_power_cons, power_range_dBm, power_range_watts = change_cell_power_dBm(max_cell_power_dBm = 46.0)
+
+    # Store the results in a list of tuples
+    results.append((param, power_range_dBm, power_range_watts, AIMM_standalone_power_cons))
+
+# Create a dataframe from the results
+df = pd.DataFrame(results, columns=["eta_pa", "power_range_dBm", "power_range_watts", "AIMM_standalone_power_cons"])
+
+# Plot the results of power_range_dBm vs. AIMM_standalone_power_cons for different values of eta_pa
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Plot the results for cell power consumption (W) vs. cell output power (dBm)
+for i in range(len(param_range)):
+    ax.plot(df.iloc[i]["power_range_dBm"], df.iloc[i]["AIMM_standalone_power_cons"], label=f"eta_pa = {df.iloc[i]['eta_pa']:.1f}")
+ax.set_xlabel("Cell output power (dBm)")
+ax.set_ylabel("Cell power consumption (W)")
+ax.legend()
+plt.grid()
+plt.show()
+
+
+
+
 
 
 # AIMM_simulation Results
@@ -221,50 +243,57 @@ AIMM_standalone, power_range_dBm, power_range_watts = change_cell_power_dBm(43.0
 project_path = set_project_path()
 
 # Set the data path
-data_path, file_name = set_data_path("data/output/reduce_centre_cell_power/2023_03_17/rccp_s100_p43dBm", project_path)
+data_path, file_name = set_data_path("data/output/change_eta_pa", project_path)
 if file_name is not None:
     data_path = data_path / file_name
 
 # Load a csv to a dataframe
-df = pd.read_csv(data_path)
+# df = pd.read_csv(data_path)
 
 # Filter the data
-AIMM_sim_model, AIMM_sim_model_watts = filter_power_consumption_data(df=df, serving_cell_id=9)
+# AIMM_sim_model, AIMM_sim_model_watts = filter_power_consumption_data(df=df, serving_cell_id=9)
 
 
-# Plot the results for cell power consumption (W) vs. cell output power (dBm)
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(figsize=(10, 6))
-fig_timestamp(fig, author='Kishan Sthankiya')
-ax.plot(power_range_dBm, AIMM_standalone, label='AIMM standalone', marker='+')
-# Set the line style to dashed
-ax.plot(*zip(*AIMM_sim_model), label='AIMM simulations', linestyle='--', marker='.')
-plt.xlabel('Cell output power (dBm)')
-plt.ylabel('Cell power consumption (W)')
-plt.title('Cell power consumption vs. cell output power')
-plt.grid()
-plt.legend()
-plt.show()
 
-# Plot the result for cell power consumption (W) vs. cell output power (W)
-import matplotlib.pyplot as plt
-fig2, ax2 = plt.subplots(figsize=(10, 6))
-fig_timestamp(fig2, author='Kishan Sthankiya')
-ax2.plot(power_range_watts, AIMM_standalone, label='AIMM standalone', marker='+')
-# Set the line style to dashed
-ax2.plot(*zip(*AIMM_sim_model_watts), label='AIMM simulations', linestyle='--', marker='.')
-plt.xlabel('Cell output power (W)')
-plt.ylabel('Cell power consumption (W)')
-plt.title('Cell power consumption vs. cell output power')
-plt.grid()
-plt.legend()
-plt.show()
+
+
+
+# # Plot the results for cell power consumption (W) vs. cell output power (dBm)
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(figsize=(10, 6))
+# fig_timestamp(fig, author='Kishan Sthankiya')
+# ax.plot(param_range, AIMM_param, label='AIMM eta_PA', marker='+')
+# # Set the line style to dashed
+# ax.plot(*zip(*AIMM_sim_model), label='AIMM simulations', linestyle='--', marker='.')
+# plt.xlabel('Cell output power (dBm)')
+# plt.ylabel('Cell power consumption (W)')
+# plt.title('Cell power consumption vs. cell output power')
+# plt.grid()
+# plt.legend()
+# plt.show()
+
+# # Plot the result for cell power consumption (W) vs. cell output power (W)
+# import matplotlib.pyplot as plt
+# fig2, ax2 = plt.subplots(figsize=(10, 6))
+# fig_timestamp(fig2, author='Kishan Sthankiya')
+# ax2.plot(power_range_watts, AIMM_standalone, label='AIMM standalone', marker='+')
+# # Set the line style to dashed
+# ax2.plot(*zip(*AIMM_sim_model_watts), label='AIMM simulations', linestyle='--', marker='.')
+# plt.xlabel('Cell output power (W)')
+# plt.ylabel('Cell power consumption (W)')
+# plt.title('Cell power consumption vs. cell output power')
+# plt.grid()
+# plt.legend()
+# plt.show()
 
 # Save the figures to disk in the project folder with today's date and timestamp
 figure_path = data_path.parent / "figures"
 figure_path.mkdir(parents=True, exist_ok=True)
 today = datetime.datetime.today().strftime("%Y_%m_%d")
 now = datetime.datetime.now().strftime("%H_%M_%S")
-fig.savefig(f"{figure_path}/{today}_{now}_AIMM_simulation_vs_standalone_dBm.png", dpi=300)
-fig2.savefig(f"{figure_path}/{today}_{now}_AIMM_simulation_vs_standalone_watts.png", dpi=300)
+# Set the figure output path
+fig_out_path = figure_path / f"{today}_{now}_AIMM_eta_pa_range.png"
+fig.savefig(fig_out_path, dpi=300)
+print(f'Figure saved to {fig_out_path}')
+# fig2.savefig(f"{figure_path}/{today}_{now}_AIMM_simulation_vs_standalone_watts.png", dpi=300)
 
