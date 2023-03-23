@@ -338,7 +338,7 @@ class CellEnergyModel:
         Time interval between CellEnergyModel updates.
     """
 
-    def __init__(self, cell: Cellv2, interval=1.0):
+    def __init__(self, cell: Cellv2, interval=1.0, params = MacroCellParameters()):
         """
         Initialize variables.
         """
@@ -355,7 +355,7 @@ class CellEnergyModel:
             self.cell_type = 'MACRO'
             # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
 
-            self.params = MacroCellParameters()
+            self.params = params
             # kiss_debugger.debug("Cell[%s] params set to %s.",
             #              cell.i, self.params.__class__.__name__)
 
