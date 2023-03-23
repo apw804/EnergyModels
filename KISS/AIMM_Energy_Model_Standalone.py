@@ -75,13 +75,56 @@ def change_cell_power_dBm(max_cell_power_dBm):
     
     return AIMM_standalone_power_cons, power_range_dBm, power_range_watts
 
-def change_dataclass_param(param, max_value, step_ratio):
-    """Change the value of a dataclass parameter."""
+def change_simulation_params():
 
-    # Construct a a range of values from 0 to the max value in increments of 1% of the max value
-    param_range = np.arange(0.0, max_value, max_value * step_ratio)
+    def change_dataclass_param(param, max_value, step_ratio):
+        """Change the value of a dataclass parameter."""
 
-    return param_range
+        # Construct a a range of values from 0 to the max value in increments of 1% of the max value
+        param_range = np.arange(0.0, max_value, max_value * step_ratio)
+
+        return param_range
+
+    # Create a simulation
+    sim = Sim()
+
+    # Record the parameter that is going to change
+    var_param = "antennas"
+
+    # Call the change_dataclass_param function
+    param_range = change_dataclass_param(param= var_param, max_value= 16, step_ratio= 1/16)
+
+    # Create a list to store the results
+    results = []
+
+    # Loop through the parameter range
+    for param in param_range:
+        # Access the MacroCellParamsStandalone dataclass, find the attribute that matches var_param and change its value to param
+        setattr(MacroCellParamsStandalone, var_param, param)
+
+        # Run for one iteration
+        AIMM_standalone_power_cons, power_range_dBm, power_range_watts = change_cell_power_dBm(max_cell_power_dBm = 46.0)
+
+        # Store the results in a list of tuples
+        results.append((param, power_range_dBm, power_range_watts, AIMM_standalone_power_cons))
+
+    # Create a dataframe from the results
+    df = pd.DataFrame(results, columns=[f"{var_param}", "power_range_dBm", "power_range_watts", "AIMM_standalone_power_cons"])
+
+    # Plot the results of power_range_dBm vs. AIMM_standalone_power_cons for different values of var_param
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot the results for cell power consumption (W) vs. cell output power (dBm)
+    for i in range(len(param_range)):
+        ax.plot(df.iloc[i]["power_range_dBm"], df.iloc[i]["AIMM_standalone_power_cons"], label=f"{var_param} = {df.iloc[i][f'{var_param}']:.2f}")
+    ax.set_xlabel("Cell output power (dBm)")
+    ax.set_ylabel("Cell power consumption (W)")
+    ax.set_title(f"Cell power consumption (W) vs. cell output power (dBm) for different values of {var_param}")
+    ax.legend()
+    plt.grid()
+    fig_timestamp(fig=fig, author='Kishan Sthankiya')
+    plt.show()
 
 def set_project_path(project_path_str: str = "~/dev-02/EnergyModels/KISS"):
     # Set the project path
@@ -186,48 +229,6 @@ def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=
         ha='left', va='bottom', fontsize=fontsize, color=color,
         rotation=rotation,
         transform=fig.transFigure, alpha=alpha)
-
-
-# Create a simulation
-sim = Sim()
-
-# Record the parameter that is going to change
-var_param = "eta_pa"
-
-# Call the change_dataclass_param function
-param_range = change_dataclass_param(param= var_param, max_value= 1.0, step_ratio= 0.1)
-
-# Create a list to store the results
-results = []
-
-# Loop through the parameter range
-for param in param_range:
-    # Access the MacroCellParamsStandalone dataclass, find the attribute that matches var_param and change its value to param
-    setattr(MacroCellParamsStandalone, var_param, param)
-
-    # Run for one iteration
-    AIMM_standalone_power_cons, power_range_dBm, power_range_watts = change_cell_power_dBm(max_cell_power_dBm = 46.0)
-
-    # Store the results in a list of tuples
-    results.append((param, power_range_dBm, power_range_watts, AIMM_standalone_power_cons))
-
-# Create a dataframe from the results
-df = pd.DataFrame(results, columns=[f"{var_param}", "power_range_dBm", "power_range_watts", "AIMM_standalone_power_cons"])
-
-# Plot the results of power_range_dBm vs. AIMM_standalone_power_cons for different values of var_param
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Plot the results for cell power consumption (W) vs. cell output power (dBm)
-for i in range(len(param_range)):
-    ax.plot(df.iloc[i]["power_range_dBm"], df.iloc[i]["AIMM_standalone_power_cons"], label=f"{var_param} = {df.iloc[i][f'{var_param}']:.1f}")
-ax.set_xlabel("Cell output power (dBm)")
-ax.set_ylabel("Cell power consumption (W)")
-ax.set_title(f"Cell power consumption (W) vs. cell output power (dBm) for different values of {var_param}")
-ax.legend()
-plt.grid()
-fig_timestamp(fig=fig, author='Kishan Sthankiya')
-plt.show()
 
 
 
