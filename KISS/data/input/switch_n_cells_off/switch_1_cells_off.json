@@ -8,7 +8,7 @@
     "debug_logging_level": "INFO",
     "line_profiler": false,
     "sim_show_params": false,
-    "seed": 3,
+    "seed": 100,
     "isd": 1500,
     "sim_radius": 3000,
     "h_BS": 25,
