@@ -649,7 +649,7 @@ class RemoveRandomCell(Scenario):
     Randomly selected cell from the simulation environment and remove after delay time (if provided), relative to t=0.
     """
 
-    def __init__(self, sim, delay=None, interval=0.1):
+    def __init__(self, sim, delay=None, interval=0.1, n_cells=0):
         """
         Initializes an instance of the RemoveRandomCell class.
 
@@ -665,32 +665,28 @@ class RemoveRandomCell(Scenario):
         self.sim = sim
         self.interval = interval
         self.delay_time = delay
+        self.n_cells = n_cells
 
     def loop(self):
         """
         The main loop of the scenario, which removes a randomly selected cell after a delay.
         """
-        # Select a random cell index using the sim.rng object
-        cell_index = self.sim.rng.integers(low=0, high=len(self.sim.cells))
+        # Select N random cells to remove using the sim.rng object
+        cell_indices = self.sim.rng.choice(len(self.sim.cells), self.n_cells, replace=False)
+
         # Print to stdout, the selection of the cell for removal
-        print(f'Cell[{cell_index}] has been selected for removal.')
+        for cell_index in cell_indices:
+            print(f'Cell[{cell_index}] has been selected for removal.')
         while True:
             if self.sim.env.now < self.delay_time:
                 yield self.sim.wait(self.interval)
             if self.sim.env.now > self.delay_time:
-                if self.sim.cells[cell_index] in self.sim.cells:
-                    # Get a list of all users in the cell
-                    ues = self.sim.cells[cell_index].attached
-                    # For each UE, handover to the best rsrp cell
-                    # This will also update the ue.serving_cell attribute and print messages to stdout
-                    self.sim.mme.attach_ues_to_n_best_rsrp(ues)      
-                    # Remove the cell from the simulation environment
-                    self.sim.cells.pop(cell_index)
-                    # Print to stdout, the removal of the cell
-                    print(f'Cell[{cell_index}] has been removed from the simulation.')
-                    # Print the handovers, reporting the new cell ID for all ues 
-                    for ue in ues:
-                        print(f'UE[{ue}] has been handed over from Cell{cell_index} to Cell[{self.sim.UEs[ue].serving_cell.i}].')
+                for cell_index in cell_indices:
+                    if self.sim.cells[cell_index] in self.sim.cells:
+                        # Remove the cell from the simulation environment
+                        self.sim.cells.pop(cell_index)
+                        # Print to stdout, the removal of the cell
+                        print(f'Cell[{cell_index}] has been removed from the simulation.')
                 yield self.sim.wait(self.interval)
             yield self.sim.wait(self.interval)
 
@@ -1299,6 +1295,8 @@ def main(config_dict):
     h_BS = config_dict["h_BS"]
     h_UT = config_dict["h_UT"]
     ue_noise_power_dBm = config_dict["ue_noise_power_dBm"]
+    scenario_profile = config_dict["scenario_profile"]
+    scenario_n_cells = config_dict["scenario_n_cells"]
     scenario_delay = config_dict["scenario_delay"]
     SetCellSleep_bedtime_stories = config_dict["scenario_SetCellSleep_params"]["SetCellSleep_bedtime_stories"]
     mme_cqi_limit = config_dict["mme_cqi_limit"]
@@ -1374,7 +1372,7 @@ def main(config_dict):
     reduce_centre_cell_power = ChangeCellPower(
         sim,
         delay=scenario_delay,
-        cells=variable_power_target_cells_list[0],
+        cells=variable_power_target_cells_list,
         new_power=variable_cell_power_dBm, 
         interval=base_interval
         )
@@ -1386,10 +1384,11 @@ def main(config_dict):
         interval=base_interval
         )
     
-    remove_random_cell = RemoveRandomCell(
+    remove_random_cells = RemoveRandomCell(
         sim, 
         delay=scenario_delay, 
-        interval=base_interval
+        interval=base_interval,
+        n_cells=scenario_n_cells
         )
     
     set_cell_sleep = SetCellSleep(
@@ -1399,7 +1398,7 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=reduce_centre_cell_power)
+    sim.add_scenario(scenario=remove_random_cells)
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
