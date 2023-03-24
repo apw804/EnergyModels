@@ -24,7 +24,11 @@ def generate_config_dict_list(config_file):
     power_dBm_step = config['power_dBm_step']
 
     # Define the range of power values to test
-    power_values = np.arange(power_dBm, power_dBm_end-power_dBm_step, -power_dBm_step)
+    # If the start and finish power values are the same, then only one power value will be tested
+    if power_dBm == power_dBm_end:
+        power_values = [power_dBm]
+    else:
+        power_values = np.arange(power_dBm, power_dBm_end-power_dBm_step, -power_dBm_step)
 
     # Define the range of seed values to test 
     seeds = list(range(seed_max))
