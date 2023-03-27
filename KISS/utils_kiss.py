@@ -14,7 +14,7 @@ def get_timestamp(date_only: Optional[bool] = False, time_only: Optional[bool] =
         str: The current timestamp.
     """
     if date_only:
-        return Timestamp.now(tz=None).strftime('%Y-%m-%d')
+        return Timestamp.now(tz=None).strftime('%Y_%m_%d')
     elif time_only:
         return Timestamp.now(tz=None).strftime('%H%M%S')
     elif for_seed:
