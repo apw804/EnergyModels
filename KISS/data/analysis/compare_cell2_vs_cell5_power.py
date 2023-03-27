@@ -9,30 +9,59 @@ from pathlib import Path
 
 
 # Set the project path
-project_path = Path("~/dev-02/EnergyModels/KISS").expanduser().resolve()
+project_path = Path("~/dev_02/EnergyModels/KISS").expanduser().resolve()
 project_path_str = str(project_path)
 print(f'Project path:{project_path}')
+rcp2_data = project_path / 'data' / 'output' / 'reduce_cell_2_power' / '2023_03_17' / 'reduce_cell_2_power'
+rcp5_data = project_path / 'data' / 'output' / 'reduce_cell_5_power' / '2023_03_17' / 'reduce_cell_5_power'
 
 
 # Read in the cell2 CSV file
-df2 = pd.read_csv(project_path / 'data' / 'output' / 'reduce_cell_2_power' / '2023_03_17' / 'reduce_cell_2_power.csv')
+df2 = pd.read_csv( 'reduce_cell_2_power.csv', index_col=False)
 
 # Read in the cell5 CSV file
-df5 = pd.read_csv(project_path / 'data' / 'output' / 'reduce_cell_5_power' / '2023_03_17' / 'reduce_cell_5_power.csv')
+df5 = pd.read_csv(project_path / 'data' / 'output' / 'reduce_cell_5_power' / '2023_03_17' / 'reduce_cell_5_power.csv', index_col=False)
 
-# # Create a new dataframe that copies the cell2 dataframe with columns serving_cell_id, sc_power(dBm), seed, cell_power(kW), cell_ee(bits/J), cell_se(bits/Hz)
-# df2_v_df5 = df2[["serving_cell_id", "sc_power(dBm)", "seed", "cell_power(kW)", "cell_ee(bits/J)", "cell_se(bits/Hz)"]].copy()
+# Sort the dataframes by the sc_power(dBm) and seed columns
+df2 = df2.sort_values(by=["sc_power(dBm)", "seed"], ascending=True)
+df5 = df5.sort_values(by=["sc_power(dBm)", "seed"], ascending=True)
 
-# # Add the suffix _df2 to the columns
-# df2_v_df5.columns = df2_v_df5.columns + "_df2"
+# Drop the Unnamed: 0 column from both dataframes
+df2 = df2.drop(columns=["Unnamed: 0"])
+df5 = df5.drop(columns=["Unnamed: 0"])
 
-# # Join the cell5 dataframe to the cell2 dataframe
-# df2_v_df5 = df2_v_df5.join(df5[["serving_cell_id", "sc_power(dBm)", "seed", "cell_power(kW)", "cell_ee(bits/J)", "cell_se(bits/Hz)"]].set_index(["serving_cell_id", "sc_power(dBm)", "seed"]), on=["serving_cell_id", "sc_power(dBm)", "seed"], rsuffix="_df5")
+# Drop index, serving_cell_sleep_mode and noise_power(dBm) columns from both dataframes
+df2 = df2.drop(columns=["serving_cell_sleep_mode", "noise_power(dBm)"])
+df5 = df5.drop(columns=["serving_cell_sleep_mode", "noise_power(dBm)"])
+
+# Drop the index
+df2 = df2.reset_index(drop=True)
+df5 = df5.reset_index(drop=True)
+
+# Filter rows where the serving_cell_id is 2
+df2 = df2[df2["serving_cell_id"] == 2]
+
+# Filter rows where the serving_cell_id is 5
+df5 = df5[df5["serving_cell_id"] == 5]
 
 
+
+# # Create a new dataframe that copies the cell2 dataframe columns serving_cell_id, sc_power(dBm), seed, cell_power(kW), cell_ee(bits/J), cell_se(bits/Hz), ue_id, distance_to_cell(m).
+# df2_v_df5 = df2[["serving_cell_id", "sc_power(dBm)", "seed", "cell_power(kW)", "cell_ee(bits/J)", "cell_se(bits/Hz)", "ue_id", "ue_throughput(Mb/s)", "distance_to_cell(m)"]]
+
+# # Join the cell5 dataframe to the df2_v_df5 dataframe columns serving_cell_id, sc_power(dBm), seed, cell_power(kW), cell_ee(bits/J), cell_se(bits/Hz), ue_id, distance_to_cell(m).
+# df2_v_df5 = df2_v_df5.join(df5[["serving_cell_id", "sc_power(dBm)", "seed", "cell_power(kW)", "cell_ee(bits/J)", "cell_se(bits/Hz)", "ue_id", "ue_throughput(Mb/s)", "distance_to_cell(m)"]], lsuffix="_cell2", rsuffix="_cell5")
 
 # # Write the dataframe to a CSV file
-# df2_v_df5.to_csv(project_path / 'data' / 'output' / 'compare_cell_2_vs_cell_5_power.csv', index=False)
+# # df2_v_df5.to_csv(project_path / 'data' / 'output' / 'compare_cell_2_vs_cell_5_power.csv', index=False)
+
+# # Drop the rows where the serving_cell_id_cell2 is not equal to 2 or the serving_cell_id_cell5 is not equal to 5
+# df2_only = df2_v_df5[(df2_v_df5["serving_cell_id_cell2"] == 2)]
+# df5_only = df2_v_df5[(df2_v_df5["serving_cell_id_cell5"] == 5)]
+
+
+
+
 
 
 def set_data_path(data_dir_str:str, project_path: Path,):
@@ -101,6 +130,81 @@ def filter_power_consumption_data(df: pd.DataFrame, serving_cell_id: int):
     AIMM_sim_model_watts = list(zip(df_output_vs_cons["P_out(W)"], df_output_vs_cons["P_cons(W)"]))
     return AIMM_sim_model_dBm, AIMM_sim_model_watts
 
+def filter_power_data(df, serving_cell_id, param):
+    """
+    Function that accepts a dataframe, serving cell ID, and column label as arguments.
+    Filters out rows where the serving cell is equal to the provided serving_cell_id.
+    Keeps the seed, sc_power(dBm), and `param` columns.
+    """
+    df_serving_cell = df[df["serving_cell_id"] == serving_cell_id]
+    df_output_vs_param = df_serving_cell[["seed", "sc_power(dBm)", param]]
+    return df_output_vs_param
+
+# Filter the data for the interesting cell ID and parameter = "cell_throughput(Mb/s)"
+df2_cell_throughput = filter_power_data(df2, 2, "cell_throughput(Mb/s)")
+df5_cell_throughput = filter_power_data(df5, 5, "cell_throughput(Mb/s)")
+
+# Every power level has 100 seeds, so we need to calculate the number of attached users for each seed and power level combination and store it in a new column
+df2_cell_throughput["n_attached"] = df2_cell_throughput.groupby(["seed", "sc_power(dBm)"])['cell_throughput(Mb/s)'].transform('count')
+df5_cell_throughput["n_attached"] = df5_cell_throughput.groupby(["seed", "sc_power(dBm)"])['cell_throughput(Mb/s)'].transform('count')
+
+# Drop all duplicate rows, ignoring the index
+df2_cell_throughput = df2_cell_throughput.drop_duplicates(ignore_index=True)
+df5_cell_throughput = df5_cell_throughput.drop_duplicates(ignore_index=True)
+
+ # group by sc_power(dBm) and calculate average cell throughput
+result2 = df2_cell_throughput.groupby(['sc_power(dBm)', 'seed']).agg('sum')
+result5 = df5_cell_throughput.groupby(['sc_power(dBm)', 'seed']).agg('sum')
+
+
+# mean
+result2a = result2.groupby(['sc_power(dBm)']).agg('mean')['cell_throughput(Mb/s)']
+result5a = result5.groupby(['sc_power(dBm)']).agg('mean')['cell_throughput(Mb/s)']
+
+
+# std
+result2b = result2.groupby(['sc_power(dBm)']).agg('std')['cell_throughput(Mb/s)']
+result5b = result5.groupby(['sc_power(dBm)']).agg('std')['cell_throughput(Mb/s)']
+
+
+# Get the unique combinations of sc_power and cell_throughput
+df2_cell_throughput = df2_cell_throughput.drop_duplicates(subset=["sc_power(dBm)", "cell_throughput(Mb/s)"])
+df5_cell_throughput = df5_cell_throughput.drop_duplicates(subset=["sc_power(dBm)", "cell_throughput(Mb/s)"])
+
+
+
+# # Get agg mean of cell throughput
+# df2_cell_throughput_mean = df2_cell_throughput.groupby(["sc_power(dBm)"])["cell_throughput(Mb/s)"].agg("sum")
+# df5_cell_throughput_mean = df5_cell_throughput.groupby(["sc_power(dBm)"])["cell_throughput(Mb/s)"].agg("sum")
+
+df2_cell_throughput = df2_cell_throughput.groupby(["sc_power(dBm)"]).agg("sum")
+df5_cell_throughput = df5_cell_throughput.groupby(["sc_power(dBm)"]).agg("sum")
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Join the two dataframes
+df2_vs_df5_cell_throughput_mean = df2_cell_throughput.join(df5_cell_throughput, lsuffix="_cell2", rsuffix="_cell5")
+
+# Filter the data for the interesting cell ID and parameter
+df2_ue_throughput = filter_power_data(df2, 2, "ue_throughput(Mb/s)")
+df5_ue_throughput = filter_power_data(df5, 5, "ue_throughput(Mb/s)")
+
+# get the aggregate UE throughput for each seed combination
+df2_ue_throughput = df2_ue_throughput.groupby(["sc_power(dBm)"]).agg("mean")["cell_throughput(Mb/s)"]
+df5_ue_throughput = df5_ue_throughput.groupby(["sc_power(dBm)"]).agg("mean")["ue_throughput(Mb/s)"]
+
+
+
 # Filter the data for the serving cell with ID 2
 cell2_power_dBm, cell2_power_watts = filter_power_consumption_data(df2, 2)
 
@@ -151,68 +255,6 @@ today = datetime.datetime.today().strftime("%Y_%m_%d")
 now = datetime.datetime.now().strftime("%H_%M_%S")
 fig1.savefig(f"{figure_path}/{today}_{now}_compare_cell2_vs_cell5_dBm.png", dpi=300)
 fig2.savefig(f"{figure_path}/{today}_{now}_compare_cell2_vs_cell5_watts.png", dpi=300)
-
-# # Sort by the seed and sc_power(dBm) columns
-# df_sorted = df.sort_values(['seed', 'sc_power(dBm)'])
-
-# # Drop the 'Unamed: 0', time and serving_cell_sleep_mode columns
-# df_sorted.drop(columns=['Unnamed: 0', 'time', 'serving_cell_sleep_mode'], inplace=True)
-
-# # Move the sc_power(dBm) column to the right of the serving_cell_id column
-# sc_power_col = df_sorted.pop('sc_power(dBm)')
-# df_sorted.insert(2, 'sc_power(dBm)', sc_power_col)
-
-# # What do the first 5 rows of the DataFrame look like?
-# print(df_sorted.head())
-
-# # Count the number of unique ue_ids when grouped by seed and serving_cell_id
-# print(df_sorted.groupby(['seed', 'serving_cell_id'])['ue_id'].nunique())
-
-# # Add this as a column to the DataFrame and call it n_ues_attached
-# df_sorted['n_ues_attached'] = df_sorted.groupby(['seed', 'serving_cell_id'])['ue_id'].transform('nunique')
-
-# # Move the n_ues_attached column to the right of the sc_power(dBm) column
-# n_ues_attached_col = df_sorted.pop('n_ues_attached')
-# df_sorted.insert(3, 'n_ues_attached', n_ues_attached_col)
-
-# # What do the first 5 rows of the DataFrame look like?
-# print(df_sorted.head())
-
-# # Group by seed and serving_cell_id and sc_power(dBm) sorted as ascending, ascending, descending - and calculate the mean of the remaining columns
-# df_grouped = df_sorted.groupby(['seed', 'serving_cell_id', 'sc_power(dBm)']).mean().sort_values(['seed', 'serving_cell_id', 'sc_power(dBm)'], ascending=[True, True, True])
-
-# # Drop any rows where the serving_cell_id index is not 5
-# df_grouped = df_grouped.drop(df_grouped[df_grouped.index.get_level_values('serving_cell_id') != 5].index)
-
-# # Remove the serving_cell_id and seed index levels and reinsert them as columns
-# df_grouped = df_grouped.reset_index(level=['serving_cell_id', 'seed'])
-
-# # Sort by the sc_power(dBm) and then the seed columns
-# df_grouped = df_grouped.sort_values(['sc_power(dBm)', 'seed'])
-
-# # column labels
-# new_columns = ['cell_id', 'cell_output_dBm', 'total_seeds', 'energy_cons_mean(kW)', 
-#                'energy_cons_std(kW)', 'ee_mean(bits/J)', 'ee_std(bits/J)', 
-#                'se_mean(bits/J)', 'se_std(bits/J)', 'n_ues_mean', 'n_ues_std']
-
-# # Construct a new Dataframe with the index as the first column
-# df_cell_5_power = pd.DataFrame(df_grouped['sc_power(dBm)'])
-
-# # Add serving_cell_id as 'cell_id' column
-# df_cell_5_power['cell_id'] = df_grouped['serving_cell_id']
-
-# # For each sc_power(dBm) value, count the number of unique seeds and add this as a column
-# df_cell_5_power['total_seeds'] = df_grouped.groupby(['sc_power(dBm)'])['seed'].transform('nunique')
-
-
-# # What do the first 5 rows of the DataFrame look like?
-# print(df_cell_5_power.head())
-
-# # What does the shape look like?
-# print(df_cell_5_power.shape)
-
-# # How many unique ue_ids are there?
-# print(df_cell_5_power['cell_id'].nunique())
 
 
 
