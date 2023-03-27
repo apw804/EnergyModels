@@ -82,12 +82,12 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
 @dataclass(frozen=True)
 class SmallCellParameters:
     """ Object for setting small cell base station parameters."""
-    p_max_dbm: float = 23.0
-    power_static_watts: float = 6.8
+    p_max_watts: float = 0.25
+    p_static_watts: float = 6.8
     eta_pa: float = 0.067
     power_rf_watts: float = 1.0
     power_baseband_watts: float = 3.0
-    loss_feed_db: float = 0.00
+    loss_feed: float = 0.00
     loss_dc: float = 0.09
     loss_cool: float = 0.00
     loss_mains: float = 0.11
@@ -99,17 +99,51 @@ class SmallCellParameters:
 @dataclass(frozen=True)
 class MacroCellParameters:
     """ Object for setting macro cell base station parameters."""
-    p_max_dbm: float = 49.0
-    power_static_watts: float = 130.0
+    p_max_watts: float = 40.0
+    p_static_watts: float = 130.0
     eta_pa: float = 0.311
     gamma_pa: float = 0.15
     power_rf_watts: float = 12.9
     power_baseband_watts: float = 29.6
-    loss_feed_db: float = 3.0
+    loss_feed: float = 0.5
     loss_dc: float = 0.075
     loss_cool: float = 0.10
     loss_mains: float = 0.09
     delta_p: float = 4.2  # 10.1109/LCOMM.2013.091213.131042
+    sectors: int = 3
+    antennas: int = 2
+
+@dataclass(frozen=True)
+class CellOffParameters:
+    """ Object for setting cell base station parameters when powered OFF."""
+    p_max_watts: float = 0.0
+    p_static_watts: float = 0.0
+    eta_pa: float = 0.0
+    gamma_pa: float = 0.0
+    power_rf_watts: float = 0.0
+    power_baseband_watts: float = 0.0
+    loss_feed: float = 0.5
+    loss_dc: float = 0.0
+    loss_cool: float = 0.0
+    loss_mains: float = 0.0
+    delta_p: float = 0.0
+    sectors: int = 0
+    antennas: int = 0
+
+@dataclass(frozen=True)
+class MacroCellIdleParameters:
+    """ Object for setting macro cell base station parameters, when the cell is IDLE."""
+    p_max_watts: float = -np.inf
+    p_static_watts: float = 130.0
+    eta_pa: float = 0.0
+    gamma_pa: float = 0.0
+    power_rf_watts: float = 12.9
+    power_baseband_watts: float = 29.6
+    loss_feed: float = 0.5
+    loss_dc: float = 0.075
+    loss_cool: float = 0.10
+    loss_mains: float = 0.09
+    delta_p: float = 0.0  # 10.1109/LCOMM.2013.091213.131042
     sectors: int = 3
     antennas: int = 2
 
@@ -344,53 +378,24 @@ class CellEnergyModel:
         """
         Initialize variables.
         """
-        # Check the cell power_dBm when initialising. Set as macro or small cell accordingly.
+
         self.cell = cell
-
-        # Log the cell id to make sure that only the owner Cell instance can update via a callback function
         self.cell_id = self.cell.i
-
-        # kiss_debugger.debug("Attaching CellEnergyModel to Cell[%s]", self.cell.i)
         if self.cell.get_power_dBm() >= 30.0:
-            # kiss_debugger.debug("Cell[%s] transmit power > 30 dBm.", self.cell.i)
-
             self.cell_type = 'MACRO'
-            # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
-
             self.params = params
-            # kiss_debugger.debug("Cell[%s] params set to %s.",
-            #              cell.i, self.params.__class__.__name__)
-
         else:
-            # kiss_debugger.debug("Cell[%s] transmit power < 30 dBm.", self.cell.i)
-
             self.cell_type = 'SMALL'
-            # kiss_debugger.debug("Cell[%s] type set to %s.", self.cell.i, self.cell_type)
-
             self.params = params
-            # kiss_debugger.debug("Cell[%s] params set to %s.",
-            #             self.cell.i, self.params.__class__.__name__)
 
         # List of params to store
-        self.CELL_POWER_OUT_DBM_MAX = self.params.p_max_dbm
-        # kiss_debugger.debug("Cell[%s] P_out_Cell_max_dBm: %s.",
-        #             self.cell.i, self.CELL_POWER_OUT_DBM_MAX)
-
-        self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC = self.params.power_static_watts / \
-            1000  # baseline energy use
-        # kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_static_kW: %s.", self.cell.i,
-        #              self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC)
-
-        # The load based power consumption
-        self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = self.trx_chain_power_dynamic_kW()
-        # kiss_debugger.debug("Cell[%s] P_out_Sector_TRXchain_dynamic_kW: %s.", self.cell.i,
-        #              self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
+        self.p_max_watts = self.params.p_max_watts
+        self.p_static_watts = self.params.p_static_watts 
+        self.p_dynamic_watts = self.trx_chain_power_dynamic_kW()
 
         # Calculate the starting cell power
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
-            self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC)
-        # kiss_debugger.debug(
-        #    "Starting power consumption for Cell[%s] (kW): %s", self.cell.i, self.cell_power_kW)
+            self.p_static_watts + self. p_dynamic_watts)
 
         # END of INIT
 
@@ -410,10 +415,20 @@ class CellEnergyModel:
         """
         Returns the power consumption (in kW), per sector / antenna.
         """
-        cell_p_out_dBm = self.cell.get_power_dBm()
 
-        if cell_p_out_dBm > self.CELL_POWER_OUT_DBM_MAX:
+
+        cell_p_out_dBm = self.cell.get_power_dBm()
+        cell_p_out_watts = self.from_dBm_to_watts(cell_p_out_dBm)
+
+        if cell_p_out_watts > self.p_max_watts:
             raise ValueError('Power cannot exceed the maximum cell power!')
+
+        if cell_p_out_watts == 0.0:
+            print(f'Cell[{self.cell.i}] power is 0.0 watts. Cell is considered OFF', file=stderr)
+            # Cell is OFF so zero the self.params that contribute to the dynamic power consumption
+            # of the TRX chain
+            # Use the CellOffParameters class to set the dynamic power consumption to zero
+            self.params = CellOffParameters()
 
         # Get current TRX chain output power in watts
         trx_p_out_watts = self.get_power_out_per_trx_chain_watts(cell_p_out_dBm)
@@ -423,16 +438,16 @@ class CellEnergyModel:
         p_bb_watts = self.params.power_baseband_watts
 
         # Calculate the Power Amplifier power consumption in watts
-        p_pa_watts = trx_p_out_watts / \
-            (self.params.eta_pa * from_dB(1 - self.params.loss_feed_db))
+        if trx_p_out_watts == 0.0:
+            p_pa_watts = 0.0
+        p_pa_watts = trx_p_out_watts / (self.params.eta_pa * (1 - from_dB(self.params.loss_feed)))
 
         # Calculate the value of `P_ue_plus_C_watts` given the number of UEs multiplex by the base station
         if self.cell.get_nattached() == 0:
             p_ue_plus_C_watts = 0.0
         else:
             p_ue_plus_C_watts = trx_p_out_watts / self.cell.get_nattached()
-
-        # p_ue_watts
+            # FIXME: This was never implemented! 
 
         # Calculate power consumptions of a single TRX chain (watts)
         p_consumption_watts = p_pa_watts + p_rf_watts + p_bb_watts
@@ -448,7 +463,7 @@ class CellEnergyModel:
         p_out_TRX_chain_kW = p_out_TRX_chain_watts / 1000
 
         # Update the instance stored value
-        self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_DYNAMIC = p_out_TRX_chain_kW
+        self.p_dynamic_watts = p_out_TRX_chain_kW
 
         return p_out_TRX_chain_kW
     
@@ -457,28 +472,8 @@ class CellEnergyModel:
         Returns the cell sleep mode.
         """
         return self.cell.sleep_mode
-
-    def reset_energy_model_params(self, params):
-        """
-        Resets the energy model parameters to default values based on the __init__ power_dBm set.
-        """
-        params = self.params
-        if self.cell_type == 'MACRO':
-            self.params = params
-        elif self.cell_type == 'SMALL':
-            self.params = params
     
-
-    def update_cell_power_kW(self):
-        """
-        Updates the cell power consumption (in kW).
-        """
-        # Reset the energy model parameters to defaults
-        self.reset_energy_model_params(params=self.params)
-
-        # Get the cell sleep mode
-        cell_sleep_mode = self.get_cell_sleep_mode()
-
+    def get_cell_sleep_mode_energy_cons(self, cell_sleep_mode):
         # If the cell sleep_mode is between 1 and 4, then the cell is in sleep mode
         if cell_sleep_mode in range(1, 5):
 
@@ -517,7 +512,7 @@ class CellEnergyModel:
             # Need to find a better way to do this and scale throughput accordingly (for slep sleep modes >1)
 
             # The amount of static power consumed by the TRX chain is the same for all sleep modes
-            static_power = self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC
+            static_power = self.p_static_watts
 
             # The ratio of active time is the amount of time that the cell is using FULL power, so there is NO SCALING for this amount of time
             active_power = self.trx_chain_power_dynamic_kW() * ratio_active
@@ -543,31 +538,43 @@ class CellEnergyModel:
 
             # Calculate the total power consumption of the cell
             self.cell_power_kW = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
-            
-            # kiss_debugger.debug(
-            #    'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
-            return
 
-        # If the cell sleep_mode is 0, then the cell is in active mode
+    def reset_energy_model_params(self, params):
+        """
+        Resets the energy model parameters to default values based on the __init__ power_dBm set.
+        """
+        params = self.params
+        if self.cell_type == 'MACRO':
+            self.params = params
+        elif self.cell_type == 'SMALL':
+            self.params = params
+    
+
+    def update_cell_power_kW(self):
+        """
+        Updates the cell power consumption (in kW).
+        """ 
+        # Reset the energy model parameters to defaults
+        self.reset_energy_model_params(params=self.params)
+
+        # Get the cell sleep mode
+        cell_sleep_mode = self.get_cell_sleep_mode()
+        if cell_sleep_mode > 0 and cell_sleep_mode < 5:
+            return self.get_cell_sleep_mode_energy_cons(cell_sleep_mode)
+
         # Update the cell power as normal
         self.cell_power_kW = self.params.sectors * self.params.antennas * (
-            self.SECTOR_TRX_CHAIN_POWER_KILOWATTS_STATIC + self.trx_chain_power_dynamic_kW())
-        # kiss_debugger.debug(
-        #    'Cell[%s] power consumption has been updated to: %s', self.cell.i, self.cell_power_kW)
-        
+            self.p_static_watts + self.trx_chain_power_dynamic_kW())
+
 
     def get_cell_power_kW(self, time):
         """
         Returns the power consumption (in kW) of the cell at a given time.
         """
         if time == 0:
-            # kiss_debugger.debug(
-            #   'Cell[%s] power consumption at t=0 is %s', self.cell.i, self.cell_power_kW)
             return self.cell_power_kW
         else:
             self.update_cell_power_kW()
-            # kiss_debugger.debug(
-            #    'Cell[%s] power consumption at t=%s is %s', self.cell.i, time, self.cell_power_kW)
             return self.cell_power_kW
 
     def f_callback(self, x, **kwargs):
@@ -575,8 +582,6 @@ class CellEnergyModel:
             if x.i == self.cell_id:
                 self.update_cell_power_kW()
             else:
-                # kiss_debugger.warning(
-                #    'Cell[%s] is trying to update the Cell[%s] energy model.', x.i, self.cell_id)
                 raise ValueError(
                     'Cells can only update their own energy model instances! Check the cell_id.')
             
@@ -678,16 +683,14 @@ class RemoveRandomCell(Scenario):
         for cell_index in cell_indices:
             print(f'Cell[{cell_index}] has been selected for removal.')
         while True:
-            if self.sim.env.now < self.delay_time:
-                yield self.sim.wait(self.interval)
-            if self.sim.env.now > self.delay_time:
+            if self.sim.env.now >= self.delay_time:
                 for cell_index in cell_indices:
-                    if self.sim.cells[cell_index] in self.sim.cells:
-                        # Remove the cell from the simulation environment
-                        self.sim.cells.pop(cell_index)
-                        # Print to stdout, the removal of the cell
-                        print(f'Cell[{cell_index}] has been removed from the simulation.')
-                yield self.sim.wait(self.interval)
+                    for cell in self.sim.cells:
+                        if cell.i == cell_index:
+                            # Zero the cell's power
+                            cell.set_power_dBm(-np.inf)
+                            # Print to stdout, the removal of the cell
+                            print(f'Cell[{cell_index}] has been `removed` from the simulation with 0.0 watts output power.')
             yield self.sim.wait(self.interval)
 
 
@@ -824,7 +827,8 @@ class MyLogger(Logger):
             ue_xy = UE.get_xyz()[:2]                                        # current UE xy position
             d2sc = np.linalg.norm(sc_xy - ue_xy)                            # current UE distance to serving_cell
             ue_tp = serving_cell.get_UE_throughput(attached_ue_id)          # current UE throughput ('fundamental')
-            sc_power = serving_cell.get_power_dBm()                         # current UE serving_cell transmit power
+            sc_power_dBm = serving_cell.get_power_dBm()                     # current UE serving_cell transmit power
+            sc_power_watts = from_dB(sc_power_dBm) / 1e3                 # current UE serving_cell transmit power in watts
             sc_rsrp = serving_cell.get_rsrp(ue_id)                          # current UE rsrp from serving_cell
             neigh1_rsrp = neigh_rsrp_array[-1][0]    
             neigh2_rsrp = neigh_rsrp_array[-2][0]    
@@ -838,7 +842,7 @@ class MyLogger(Logger):
             cell_se = (cell_tp * 1e6) / (serving_cell.bw_MHz * 1e6)         # current UE serving_cell spectral efficiency
 
             # Get the above as a list
-            data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_tp, cell_power_kW, cell_ee, cell_se]
+            data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power_dBm, sc_power_watts, sc_rsrp, neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_tp, cell_power_kW, cell_ee, cell_se]
 
             # convert ndarrays to str or float
             for i, j in enumerate(data_list):
@@ -866,7 +870,8 @@ class MyLogger(Logger):
         ue_xy = float('nan')                                        # UE xy position
         d2sc = float('nan')                                         # distance to serving_cell
         ue_tp = float('nan')                                        # UE throughput ('fundamental')
-        sc_power = cell.get_power_dBm()                             # current UE serving_cell transmit power
+        sc_power_dBm = cell.get_power_dBm()                         # current UE serving_cell transmit power
+        sc_power_watts = from_dB(sc_power_dBm) / 1e3
         sc_rsrp = float('nan')                                      # current UE rsrp from serving_cell
         neigh1_rsrp = float('nan')                                  # current UE neighbouring cell 1 rsrp
         neigh2_rsrp = float('nan')                                  # current UE neighbouring cell 2 rsrp
@@ -880,7 +885,7 @@ class MyLogger(Logger):
         cell_se = (cell_tp * 1e6) / (cell.bw_MHz * 1e6)     # current UE serving_cell spectral efficiency
 
         # Get the above as a list
-        data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power, sc_rsrp, 
+        data_list = [seed, tm, sc_id, sc_sleep_mode, ue_id, d2sc, ue_tp, sc_power_dBm, sc_power_watts, sc_rsrp, 
                      neigh1_rsrp, neigh2_rsrp, noise, sinr, cqi, mcs, cell_tp, cell_power_kW, 
                      cell_ee, cell_se]
 
@@ -899,7 +904,7 @@ class MyLogger(Logger):
         all_data = []
         # Keep a list of column names to track
         columns = ["seed", "time", "serving_cell_id", "serving_cell_sleep_mode", "ue_id",
-            "distance_to_cell(m)", "ue_throughput(Mb/s)", "sc_power(dBm)","sc_rsrp(dBm)", 
+            "distance_to_cell(m)", "ue_throughput(Mb/s)", "sc_power(dBm)", "sc_power(watts)","sc_rsrp(dBm)", 
             "neighbour1_rsrp(dBm)", "neighbour2_rsrp(dBm)", "noise_power(dBm)", "sinr(dB)", 
             "cqi", "mcs", "cell_throughput(Mb/s)", "cell_power(kW)", "cell_ee(bits/J)", 
             "cell_se(bits/Hz)"]
