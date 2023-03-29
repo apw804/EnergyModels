@@ -391,10 +391,10 @@ class CellEnergyModel:
         # List of params to store
         self.p_max_watts = self.params.p_max_watts
         self.p_static_watts = self.params.p_static_watts 
-        self.p_dynamic_watts = self.trx_chain_power_dynamic_kW()
+        self.p_dynamic_watts = self.trx_chain_power_dynamic_watts()
 
         # Calculate the starting cell power
-        self.cell_power_kW = self.params.sectors * self.params.antennas * (
+        self.cell_power_watts = self.params.sectors * self.params.antennas * (
             self.p_static_watts + self. p_dynamic_watts)
 
         # END of INIT
@@ -411,7 +411,7 @@ class CellEnergyModel:
         """
         return self.from_dBm_to_watts(cell_power)
 
-    def trx_chain_power_dynamic_kW(self):
+    def trx_chain_power_dynamic_watts(self):
         """
         Returns the power consumption (in kW), per sector / antenna.
         """
@@ -440,7 +440,7 @@ class CellEnergyModel:
         # Calculate the Power Amplifier power consumption in watts
         if trx_p_out_watts == 0.0:
             p_pa_watts = 0.0
-        p_pa_watts = trx_p_out_watts / (self.params.eta_pa * (1 - from_dB(self.params.loss_feed)))
+        p_pa_watts = trx_p_out_watts / (self.params.eta_pa * (1 - self.params.loss_feed))
 
         # Calculate the value of `P_ue_plus_C_watts` given the number of UEs multiplex by the base station
         if self.cell.get_nattached() == 0:
@@ -459,13 +459,11 @@ class CellEnergyModel:
         # Get the power output per TRX chain (watts)
         p_out_TRX_chain_watts = p_consumption_watts / p_losses_ratio
 
-        # Power output per TRX chain (kW)
-        p_out_TRX_chain_kW = p_out_TRX_chain_watts / 1000
 
         # Update the instance stored value
-        self.p_dynamic_watts = p_out_TRX_chain_kW
+        self.p_dynamic_watts = p_out_TRX_chain_watts
 
-        return p_out_TRX_chain_kW
+        return p_out_TRX_chain_watts
     
     def get_cell_sleep_mode(self):
         """
@@ -515,7 +513,7 @@ class CellEnergyModel:
             static_power = self.p_static_watts
 
             # The ratio of active time is the amount of time that the cell is using FULL power, so there is NO SCALING for this amount of time
-            active_power = self.trx_chain_power_dynamic_kW() * ratio_active
+            active_power = self.trx_chain_power_dynamic_watts() * ratio_active
 
             # Sleep modes turn hardware componenets off so here we `zero` these by scaling to the ratio of active time
             # Determine the sleep mode and set the power consumption parameters accordingly
@@ -534,10 +532,10 @@ class CellEnergyModel:
                 self.params = dataclasses.replace(self.params, power_rf_watts=power_rf_watts_scaled, power_baseband_watts=power_baseband_watts_scaled, eta_pa=eta_pa_scaled, loss_dc=loss_dc_scaled)
             
             # The ratio of SLEEP time is the amount of time that the cell is using SCALED power, so there is LESS POWER CONSUMPTION for this amount of time
-            sleep_power = self.trx_chain_power_dynamic_kW() * sleep_ratio
+            sleep_power = self.trx_chain_power_dynamic_watts() * sleep_ratio
 
             # Calculate the total power consumption of the cell
-            self.cell_power_kW = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
+            self.cell_power_watts = self.params.sectors * self.params.antennas * (static_power + active_power + sleep_power)
 
     def reset_energy_model_params(self, params):
         """
@@ -550,9 +548,9 @@ class CellEnergyModel:
             self.params = params
     
 
-    def update_cell_power_kW(self):
+    def update_cell_power_watts(self):
         """
-        Updates the cell power consumption (in kW).
+        Updates the cell power consumption (in watts).
         """ 
         # Reset the energy model parameters to defaults
         self.reset_energy_model_params(params=self.params)
@@ -563,24 +561,24 @@ class CellEnergyModel:
             return self.get_cell_sleep_mode_energy_cons(cell_sleep_mode)
 
         # Update the cell power as normal
-        self.cell_power_kW = self.params.sectors * self.params.antennas * (
-            self.p_static_watts + self.trx_chain_power_dynamic_kW())
+        self.cell_power_watts = self.params.sectors * self.params.antennas * (
+            self.p_static_watts + self.trx_chain_power_dynamic_watts())
 
 
-    def get_cell_power_kW(self, time):
+    def get_cell_power_watts(self, time):
         """
-        Returns the power consumption (in kW) of the cell at a given time.
+        Returns the power consumption (in watts) of the cell at a given time.
         """
         if time == 0:
-            return self.cell_power_kW
+            return self.cell_power_watts
         else:
-            self.update_cell_power_kW()
-            return self.cell_power_kW
+            self.update_cell_power_watts()
+            return self.cell_power_watts
 
     def f_callback(self, x, **kwargs):
         if isinstance(x, Cellv2):
             if x.i == self.cell_id:
-                self.update_cell_power_kW()
+                self.update_cell_power_watts()
             else:
                 raise ValueError(
                     'Cells can only update their own energy model instances! Check the cell_id.')
@@ -837,7 +835,7 @@ class MyLogger(Logger):
             cqi = UE.cqi                                                    # current UE cqi from serving_cell
             mcs = self.get_cqi_to_mcs(cqi)                                  # current UE mcs for serving_cell
             cell_tp = serving_cell.get_cell_throughput()                    # current UE serving_cell throughput
-            cell_power_kW = cell_energy_model.get_cell_power_kW(tm)         # current UE serving_cell power consumption
+            cell_power_kW = cell_energy_model.get_cell_power_watts(tm) / 1e3          # current UE serving_cell power consumption
             cell_ee = (cell_tp * 1e6) / (cell_power_kW * 1e3)               # current UE serving_cell energy efficiency
             cell_se = (cell_tp * 1e6) / (serving_cell.bw_MHz * 1e6)         # current UE serving_cell spectral efficiency
 
@@ -880,7 +878,7 @@ class MyLogger(Logger):
         cqi = float('nan')                                          # current UE cqi from serving_cell
         mcs = float('nan')                                          # current UE mcs for serving_cell
         cell_tp = cell.get_cell_throughput()                        # current UE serving_cell throughput
-        cell_power_kW = cell_energy_model.get_cell_power_kW(tm)     # current UE serving_cell power consumption
+        cell_power_kW = cell_energy_model.get_cell_power_watts(tm) / 1e3    # current UE serving_cell power consumption
         cell_ee = ((cell_tp * 1e6) / (cell_power_kW * 1e3)) * 1e6   # current UE serving_cell energy efficiency
         cell_se = (cell_tp * 1e6) / (cell.bw_MHz * 1e6)     # current UE serving_cell spectral efficiency
 
@@ -1403,7 +1401,7 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=remove_random_cells)
+    sim.add_scenario(scenario=reduce_centre_cell_power)
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
