@@ -49,7 +49,7 @@ df_cc.sort_values(by=['sc_power(dBm)', 'seed'], inplace=True)
 # and a copy of the original dataframe
 df_cc_only = df_cc.loc[df_cc['serving_cell_id'] == 9, :]
 df_not_cc = df_cc.loc[df_cc['serving_cell_id'] != 9, :]
-df_network = df_cc.copy()
+
 
 # Drop time, serving_cell_sleep_mode, neighbour1_rsrp(dBm),
 # neighbour2_rsrp(dBm) and noise_power(dBm)
@@ -63,17 +63,12 @@ df_not_cc = df_not_cc.drop(columns=['time',
                                     'neighbour1_rsrp(dBm)',
                                     'neighbour2_rsrp(dBm)',
                                     'noise_power(dBm)'])
-df_network = df_network.drop(columns=['time',
-                                    'serving_cell_sleep_mode',
-                                    'neighbour1_rsrp(dBm)',
-                                    'neighbour2_rsrp(dBm)',
-                                    'noise_power(dBm)'])
 
 
 # Sort the dataframes by the sc_power(dBm) and seed columns
 df_cc_only.sort_values(by=['sc_power(dBm)', 'seed'], inplace=True)
 df_not_cc.sort_values(by=['sc_power(dBm)', 'seed'], inplace=True)
-df_network.sort_values(by=['sc_power(dBm)', 'seed'], inplace=True)
+
 
 # Bring the sc_power(dBm) column to the far left
 sc_power_cc = df_cc_only.pop('sc_power(dBm)')
@@ -82,8 +77,7 @@ df_cc_only.insert(0, 'sc_power(dBm)', sc_power_cc)
 sc_power_not_cc = df_not_cc.pop('sc_power(dBm)')
 df_not_cc.insert(0, 'sc_power(dBm)', sc_power_not_cc)
 
-sc_power_cc_copy = df_network.pop('sc_power(dBm)')
-df_network.insert(0, 'sc_power(dBm)', sc_power_cc_copy)
+
 
 
 # Add sc_power(dBm), seed and ue_id columns to the index in ascending order
@@ -93,14 +87,12 @@ df_cc_only.sort_index(inplace=True)
 df_not_cc.set_index(['sc_power(dBm)', 'seed'], inplace=True)
 df_not_cc.sort_index(inplace=True)
 
-df_network.set_index(['sc_power(dBm)', 'seed'], inplace=True)
-df_network.sort_index(inplace=True)
 
 
 # Keep the last 8 columns and drop the rest
 df_cc_only = df_cc_only.iloc[:, -8:]
 df_not_cc = df_not_cc.iloc[:, -8:]
-df_network = df_network.iloc[:, -8:]
+
 
 
 # Group by sc_power(dBm) and seed and aggregate the first value
@@ -111,12 +103,6 @@ df_cc_condensed = df_cc_only.groupby(level=['sc_power(dBm)', 'seed']).agg({
 'cell_se(bits/Hz)': 'first'
 })
 df_not_cc_condensed = df_not_cc.groupby(level=['sc_power(dBm)', 'seed']).agg({
-    'cell_throughput(Mb/s)': 'first',
-    'cell_power(kW)': 'first',
-'cell_ee(bits/J)': 'first',
-'cell_se(bits/Hz)': 'first'
-})
-df_network_condensed = df_network.groupby(level=['sc_power(dBm)', 'seed']).agg({
     'cell_throughput(Mb/s)': 'first',
     'cell_power(kW)': 'first',
 'cell_ee(bits/J)': 'first',
@@ -143,17 +129,10 @@ df_not_cc_mean = df_not_cc_condensed.groupby(level='sc_power(dBm)').agg({
 })
 df_not_cc_mean.columns = ['_'.join(col).strip() for col in df_not_cc_mean.columns.values]
 
-df_network_mean = df_network_condensed.groupby(level='sc_power(dBm)').agg({
-'cell_throughput(Mb/s)': ['mean', 'std'],
-'cell_power(kW)': ['mean', 'std'],
-'cell_ee(bits/J)': ['mean', 'std'],
-'cell_se(bits/Hz)': ['mean', 'std']
-})
-df_network_mean.columns = ['_'.join(col).strip() for col in df_network_mean.columns.values]
 
 # Dodging the datasets to avoid error bars overlapping
 df_cc_mean.index = df_cc_mean.index - 1
-df_network_mean.index = df_network_mean.index + 1
+
 
 # Plot the cell throughput, cell power, cell ee and cell se for the centre cell,
 # not_centre_cell and network vs sc_power(dBm) with error bars representing the 
@@ -175,112 +154,23 @@ ax[0, 0].errorbar(df_not_cc_mean.index,
                     label='Not Cell 9',
                     capsize=2,
                     linewidth=1)
-ax[0, 0].errorbar(df_network_mean.index,
-                    df_network_mean['cell_throughput(Mb/s)_mean'],
-                    yerr=df_network_mean['cell_throughput(Mb/s)_std'],
-                    fmt='.',
-                    label='Network',
-                    capsize=2,
-                    linewidth=1)
+
 ax[0, 0].set_title('Cell Throughput')
 ax[0, 0].set_xlabel('SC Power (dBm)')
 ax[0, 0].set_ylabel('Throughput (Mb/s)')
 
 
-ax[0, 1].errorbar(df_cc_mean.index, 
-                  df_cc_mean['cell_power(kW)_mean'], 
-                  yerr=df_cc_mean['cell_power(kW)_std'], 
-                  fmt='o', 
-                  label='Cell 9', 
-                  capsize=2,
-                  linewidth=1)
-ax[0, 1].errorbar(df_not_cc_mean.index,
-                    df_not_cc_mean['cell_power(kW)_mean'],
-                    yerr=df_not_cc_mean['cell_power(kW)_std'],
-                    fmt='x',
-                    label='Not Cell 9',
-                    capsize=2,
-                    linewidth=1)
-ax[0, 1].errorbar(df_network_mean.index,
-                    df_network_mean['cell_power(kW)_mean'],
-                    yerr=df_network_mean['cell_power(kW)_std'],
-                    fmt='.',
-                    label='Network',
-                    capsize=2,
-                    linewidth=1)
-ax[0, 1].set_title('Cell Power')
-ax[0, 1].set_xlabel('SC Power (dBm)')
-ax[0, 1].set_ylabel('Power (kW)')
-ax[0, 1].legend()
-
-
-ax[1, 0].errorbar(df_cc_mean.index, 
-                  df_cc_mean['cell_ee(bits/J)_mean'], 
-                  yerr=df_cc_mean['cell_ee(bits/J)_std'], 
-                  fmt='o', 
-                  label='Cell 9', 
-                  capsize=2, 
-                  linewidth=1)
-ax[1, 0].errorbar(df_not_cc_mean.index,
-                    df_not_cc_mean['cell_ee(bits/J)_mean'],
-                    yerr=df_not_cc_mean['cell_ee(bits/J)_std'],
-                    fmt='x',
-                    label='Not Cell 9',
-                    capsize=2,
-                    linewidth=1)
-ax[1, 0].errorbar(df_network_mean.index,
-                    df_network_mean['cell_ee(bits/J)_mean'],
-                    yerr=df_network_mean['cell_ee(bits/J)_std'],
-                    fmt='.',
-                    label='Network',
-                    capsize=2,
-                    linewidth=1)
-ax[1, 0].set_title('Cell EE')
-ax[1, 0].set_xlabel('SC Power (dBm)')
-ax[1, 0].set_ylabel('EE (bits/J)')
-ax[1, 0].legend()
-
-
-ax[1, 1].errorbar(df_cc_mean.index, 
-                  df_cc_mean['cell_se(bits/Hz)_mean'], 
-                  yerr=df_cc_mean['cell_se(bits/Hz)_std'], 
-                  fmt='o', 
-                  label='Cell 9', 
-                  capsize=2, 
-                  linewidth=1)
-ax[1, 1].errorbar(df_not_cc_mean.index,
-                    df_not_cc_mean['cell_se(bits/Hz)_mean'],
-                    yerr=df_not_cc_mean['cell_se(bits/Hz)_std'],
-                    fmt='x',
-                    label='Not Cell 9',
-                    capsize=2,
-                    linewidth=1)
-ax[1, 1].errorbar(df_network_mean.index,
-                    df_network_mean['cell_se(bits/Hz)_mean'],
-                    yerr=df_network_mean['cell_se(bits/Hz)_std'],
-                    fmt='.',
-                    label='Network',
-                    capsize=2,
-                    linewidth=1)
-ax[1, 1].set_title('Cell SE')
-ax[1, 1].set_xlabel('SC Power (dBm)')
-ax[1, 1].set_ylabel('SE (bits/Hz)')
-ax[1, 1].legend()
 
 # Set grid on the plot with a line style of '--' and a line width of 0.5
 ax[0, 0].grid(linestyle='--', linewidth=0.5)
-ax[0, 1].grid(linestyle='--', linewidth=0.5)
-ax[1, 0].grid(linestyle='--', linewidth=0.5)
-ax[1, 1].grid(linestyle='--', linewidth=0.5)
+
 
 # Add minor ticks to the plot
 ax[0, 0].minorticks_on()
-ax[0, 1].minorticks_on()
-ax[1, 0].minorticks_on()
-ax[1, 1].minorticks_on()
+
 
 # Set the title for the figure
-fig.suptitle('Cell 9 vs. Not Cell 9 vs. Network')
+fig.suptitle('Cell 9 vs. Not Cell 9')
 
 # import the fig_timestamp from a file in a parent directory
 fig_timestamp(fig, author='Kishan Sthankiya')
