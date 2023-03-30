@@ -55,7 +55,7 @@ df_cc = df_cc.drop(columns=snooze_columns)
 df_cc_only = df_cc.loc[df_cc['serving_cell_id'] == 9, :]
 
 # Define the distant neighbours of cell 9
-distant_neighbours = [4, 5, 8, 10, 13, 14]
+distant_neighbours = [0, 1, 2, 3, 6, 7, 11, 12, 15, 16, 17, 18]
 # Create a dataframe from an existing dataframe using loc to select rows
 # where the serving_cell_id is in the list of distant neighbours
 df_in = df_cc.loc[df_cc['serving_cell_id'].isin(distant_neighbours), :]
@@ -193,4 +193,4 @@ fig.suptitle('Cell 9 vs Distant Neighbours for varying Cell 9 power levels')
 # import the fig_timestamp from a file in a parent directory
 fig_timestamp(fig, author='Kishan Sthankiya')
 plt.tight_layout()
-plt.savefig('cell9_vs_distant_neighbours.png', dpi=300)
+plt.savefig('2023_03_30_cell9_vs_distant_neighbours.png', dpi=300)
