@@ -1,6 +1,6 @@
 # Script to look at the effect of reducing the power of the centre cell on the
 #  throughput, power, energy efficiency and spectral efficiency of the centre
-#  cell and its immediate neighbours.
+#  cell and its distant neighbours.
 
 import datetime
 import numpy as np
@@ -54,11 +54,11 @@ df_cc = df_cc.drop(columns=snooze_columns)
 # where the serving_cell_id is 9 and another where the serving_cell_id is not 9
 df_cc_only = df_cc.loc[df_cc['serving_cell_id'] == 9, :]
 
-# Define the immediate neighbours of cell 9
-immediate_neighbours = [4, 5, 8, 10, 13, 14]
+# Define the distant neighbours of cell 9
+distant_neighbours = [4, 5, 8, 10, 13, 14]
 # Create a dataframe from an existing dataframe using loc to select rows
-# where the serving_cell_id is in the list of immediate neighbours
-df_in = df_cc.loc[df_cc['serving_cell_id'].isin(immediate_neighbours), :]
+# where the serving_cell_id is in the list of distant neighbours
+df_in = df_cc.loc[df_cc['serving_cell_id'].isin(distant_neighbours), :]
 
 
 
@@ -94,7 +94,7 @@ ax[0,0].errorbar(df_cc_mean.index,
 ax[0,0].errorbar(df_in_mean.index,
                     df_in_mean['cell_throughput(Mb/s)_mean'],
                     yerr=df_in_mean['cell_throughput(Mb/s)_std'],
-                    label='Immediate Neighbours',
+                    label='Distant Neighbours',
                     fmt='.', 
                     capsize=2, 
                     linewidth=1)
@@ -116,7 +116,7 @@ ax[0,1].errorbar(df_cc_mean.index,
 ax[0,1].errorbar(df_in_mean.index,
                     df_in_mean['cell_power(kW)_mean'],
                     yerr=df_in_mean['cell_power(kW)_std'],
-                    label='Immediate Neighbours',
+                    label='Distant Neighbours',
                     fmt='.', 
                     capsize=2, 
                     linewidth=1)
@@ -138,7 +138,7 @@ ax[1,0].errorbar(df_cc_mean.index,
 ax[1,0].errorbar(df_in_mean.index,
                     df_in_mean['cell_ee(bits/J)_mean'],
                     yerr=df_in_mean['cell_ee(bits/J)_std'],
-                    label='Immediate Neighbours',
+                    label='Distant Neighbours',
                     fmt='.', 
                     capsize=2, 
                     linewidth=1)
@@ -160,7 +160,7 @@ ax[1,1].errorbar(df_cc_mean.index,
 ax[1,1].errorbar(df_in_mean.index,
                     df_in_mean['cell_se(bits/Hz)_mean'],
                     yerr=df_in_mean['cell_se(bits/Hz)_std'],
-                    label='Immediate Neighbours',
+                    label='Distant Neighbours',
                     fmt='.', 
                     capsize=2, 
                     linewidth=1)
@@ -188,9 +188,9 @@ ax[1, 1].minorticks_on()
 
 
 # Set the title for the figure
-fig.suptitle('Cell 9 vs Immediate Neighbours for varying Cell 9 power levels')
+fig.suptitle('Cell 9 vs Distant Neighbours for varying Cell 9 power levels')
 
 # import the fig_timestamp from a file in a parent directory
 fig_timestamp(fig, author='Kishan Sthankiya')
 plt.tight_layout()
-plt.savefig('cell9_vs_immediate_neighbours.png', dpi=300)
+plt.savefig('cell9_vs_distant_neighbours.png', dpi=300)
