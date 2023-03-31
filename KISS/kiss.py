@@ -133,7 +133,7 @@ class CellOffParameters:
 @dataclass(frozen=True)
 class MacroCellIdleParameters:
     """ Object for setting macro cell base station parameters, when the cell is IDLE."""
-    p_max_watts: float = -np.inf
+    p_max_watts: float = 0.0
     p_static_watts: float = 130.0
     eta_pa: float = 0.0
     gamma_pa: float = 0.0
@@ -1401,7 +1401,7 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=reduce_centre_cell_power)
+    sim.add_scenario(scenario=remove_random_cells)
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
