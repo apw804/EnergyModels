@@ -119,7 +119,7 @@
       "program": "${workspaceFolder}/KISS/run_kiss.py",
       "args": [
         "-c",
-        "data/input/switch_n_cells_off/test_switch_n_cells_off.json"
+        "data/input/switch_n_cells_off/switch_2_cells_off.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
