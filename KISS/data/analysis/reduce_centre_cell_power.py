@@ -1,4 +1,6 @@
-# Script to compare cell 8 and cell 10 power
+# Script to get the mean and standard deviation of the cell throughput, cell
+# power, cell energy efficiency and cell spectral efficiency for the centre
+# cell and the other cells for the reduce_centre_cell_power experiment.
 
 import datetime
 import numpy as np
