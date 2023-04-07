@@ -53,14 +53,30 @@ def create_logfile_path(config_dict, debug_logger: bool = False):
             acronym = ''.join(word[0] for word in config_dict['experiment_description'].split('_'))
         
 
+    if config_dict['scenario_profile'] != "switch_n_cells_off":
         logfile_name = "_".join(
-            [
-                acronym,
-                "s" + str(config_dict['seed']),
-                "p" + str(config_dict['variable_cell_power_dBm']) + "dBm",
-                "n_var_cells" + str(config_dict['n_variable_power_cells']),
-                time_now,
-            ])
+        [
+            acronym,
+            "s" + str(config_dict['seed']),
+            "p" + str(config_dict['variable_cell_power_dBm']),
+            time_now,
+        ])
+    else:
+        if config_dict['scenario_n_cells'] < 10:
+            n_cells = "0" + str(config_dict['scenario_n_cells'])
+        else:
+            n_cells = str(config_dict['scenario_n_cells'])
+        # Replace the second letter of the acronym with the number of cells
+        acronym = acronym[:1] + n_cells + acronym[2:]
+        acronym = acronym
+        logfile_name = "_".join(
+        [
+            acronym,
+            "s" + str(config_dict['seed']),
+            "p" + str(config_dict['variable_cell_power_dBm']),
+            time_now,
+        ])
+
     
     # if config_dict["experiment_description"] begins with test_, then add `_test` to the logfile_path
     if config_dict["experiment_description"].startswith("test_"):
@@ -241,6 +257,7 @@ class Simv2(Sim):
     """ Class to extend original Sim class for extended capabilities from sub-classing."""
     def __init__(self, *args, **kwargs):
         self.orphaned_ues = []
+        self.cell_UID = {}
         super().__init__(*args, **kwargs)
     
     def make_cellv2(self, **cell_kwargs):
@@ -298,8 +315,20 @@ class AMFv1(MME):
         # Finally, clear the `self.poor_cqi_ues` list
         self.poor_cqi_ues.clear()
 
+    @classmethod
+    def attach_ue_to_best_rsrp(cls, ue_id):
+        """
+        Accepts a UE ID. Attaches UE to the cell that gives it the best rsrp cell.
+        """
+        ue = [ue for ue in cls.sim.UEs if ue.i == ue_id]
+        best_cell = cls.sim.get_best_rsrp_cell(ue_i=ue.i)
+        ue.detach()
+        if best_cell is not None:
+            ue.attach(best_cell)
 
-    def attach_ues_to_n_best_rsrp(self, ues, n=0):
+    # FIXME - testing to see if changing to a classmethod will allow me to call it from a Scenario class.
+    @classmethod
+    def attach_ues_to_n_best_rsrp(cls, ues, n=0):
         """
         Accepts a list of UEs. Attaches UE to the cell that gives it the Nth best rsrp cell, where N is the rank of the RSRP value. 
         
@@ -312,17 +341,17 @@ class AMFv1(MME):
         # Print to stdout, the UEs that will be handed over
         print(f'Handing over UEs: {ues}')
         for ue_i in list(ues):
-            ue = self.sim.UEs[ue_i]
+            ue = cls.sim.UEs[ue_i]
             # If N is greater than the number of cells in the simulation, the UE will be attached to the cell with the best RSRP value.
-            if n > len(self.sim.cells):
+            if n > len(cls.sim.cells):
                 n = 0
                 # Get the cell that the UE will be handed over to.
-                celli=self.sim.get_best_rsrp_cell(ue_i)
+                celli=cls.sim.get_best_rsrp_cell(ue_i)
 
             # If N is less than or equal to the number of cells in the simulation, the UE will be attached to the cell with the Nth best RSRP value.
-            if n <= len(self.sim.cells):
+            if n <= len(cls.sim.cells):
                 # Get the cell that the UE will be handed over to.
-                celli, cell_rsrp=self.sim.loggers[0].get_neighbour_cell_rsrp_rank(ue_id=ue_i, neighbour_rank=n)
+                celli, cell_rsrp=cls.sim.loggers[0].get_neighbour_cell_rsrp_rank(ue_id=ue_i, neighbour_rank=n)
 
                 # Print to stdout, the cell that the UE will be handed over to.
                 print(f'Handing over UE[{ue_i}] to Cell[{celli}]')
@@ -331,7 +360,7 @@ class AMFv1(MME):
                 ue.detach()
                 print(f'UE[{ue_i}] has been detached from Cell[{old_cell}].')
                 # Attach the UE to the new cell.
-                ue.attach(self.sim.cells[celli])
+                ue.attach(cls.sim.cells[celli])
                 print(f'UE[{ue_i}] has been attached to Cell[{celli}].')
                 # Send RSRP and CQI reports to the new cell.
                 ue.send_rsrp_reports() # make sure we have reports immediately
@@ -647,14 +676,14 @@ class ChangeCellPower(Scenario):
 
 
 
-class RemoveRandomCell(Scenario):
+class SwitchNCellsOff(Scenario):
     """
     Randomly selected cell from the simulation environment and remove after delay time (if provided), relative to t=0.
     """
 
     def __init__(self, sim, delay=None, interval=0.1, n_cells=0):
         """
-        Initializes an instance of the RemoveRandomCell class.
+        Initializes an instance of the SwitchNCellsOff class.
 
         Parameters:
         -----------
@@ -689,6 +718,7 @@ class RemoveRandomCell(Scenario):
                             cell.set_power_dBm(-np.inf)
                             # Print to stdout, the removal of the cell
                             print(f'Cell[{cell_index}] has been `removed` from the simulation with 0.0 watts output power.')
+
             yield self.sim.wait(self.interval)
 
 
@@ -1348,11 +1378,14 @@ def main(config_dict):
     for i in ue_ppp:
         x, y = i
         ue_xyz = x, y, h_UT
-        sim.make_UE(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=0).attach_to_strongest_cell_simple_pathloss_model()
+        ue = sim.make_UE(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=0)
+        ue.noise_power_dBm = ue_noise_power_dBm
+        ue.detach()
+        best_cell = sim.get_best_rsrp_cell(ue_i=ue.i)
+        if best_cell is not None:
+            ue.attach(best_cell)
+            
 
-    # Change the noise_power_dBm
-    for ue in sim.UEs:
-        ue.noise_power_dBm=ue_noise_power_dBm
 
     # Add the logger to the simulator
     custom_logger = MyLogger(sim,
@@ -1387,7 +1420,7 @@ def main(config_dict):
         interval=base_interval
         )
     
-    remove_random_cells = RemoveRandomCell(
+    switch_n_cells_off = SwitchNCellsOff(
         sim, 
         delay=scenario_delay, 
         interval=base_interval,
@@ -1401,7 +1434,21 @@ def main(config_dict):
         )
 
     # Activate scenarios
-    sim.add_scenario(scenario=remove_random_cells)
+    if scenario_profile == "reduce_random_cell_power":
+        sim.add_scenario(scenario=reduce_random_cell_power)
+    elif scenario_profile == "reduce_centre_cell_power":
+        sim.add_scenario(scenario=reduce_centre_cell_power)
+    elif scenario_profile == "change_outer_ring_power":
+        sim.add_scenario(scenario=change_outer_ring_power)
+    elif scenario_profile == "switch_n_cells_off":
+        sim.add_scenario(scenario=switch_n_cells_off)
+    elif scenario_profile == "set_cell_sleep":
+        sim.add_scenario(scenario=set_cell_sleep)
+    elif scenario_profile == "no_scenarios":
+        pass
+    else:
+        raise ValueError("Scenario profile not recognised")
+
 
     # Add MME for handovers
     default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
