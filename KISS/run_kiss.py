@@ -5,6 +5,19 @@ import os
 import subprocess
 import time
 import numpy as np
+import signal
+
+# Define a signal handler function to handle the SIGINT and SIGTERM signals
+def signal_handler(signum, frame):
+    # Print a message to the console
+    print(f"Received signal {signum}, exiting...")
+
+    # Remove the temporary JSON files
+    remove_temp_json(json_file_list)
+
+    # Exit the program
+    exit(1)
+
 
 def generate_config_dict_list(config_file):
     # Load the contents of the JSON file into a dictionary
@@ -27,6 +40,10 @@ def generate_config_dict_list(config_file):
     # If the start and finish power values are the same, then only one power value will be tested
     if power_dBm == power_dBm_end:
         power_values = [power_dBm]
+    # If the finish power value is `-inf` then the range of power values will be from the start power value to `0dBm` in steps of `power_dBm_step`, and then an additional value of `-np.inf` will be added to the end of the list
+    elif power_dBm_end == "-np.inf":
+        power_values = np.arange(power_dBm, 0, -power_dBm_step)
+        power_values = np.append(power_values, -np.inf)
     else:
         power_values = np.arange(power_dBm, power_dBm_end-power_dBm_step, -power_dBm_step)
 
@@ -137,7 +154,11 @@ def remove_temp_json(json_file_list):
 import multiprocessing as mp
 
 if __name__ == '__main__':
-    
+    # Register the signal handler function to handle the SIGINT and SIGTERM signals
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Parse the command line arguments
     parser = argparse.ArgumentParser(
         description='Run kiss.py against a specified config value.')
 

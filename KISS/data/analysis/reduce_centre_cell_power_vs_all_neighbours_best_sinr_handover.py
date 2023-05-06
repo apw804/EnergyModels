@@ -1,11 +1,8 @@
-# Script to compare cell 8 and cell 10 power
-
 import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
-import seaborn as sns
 import sys
 sys.path.append('/Users/apw804/dev_02/EnergyModels/KISS')
 
@@ -16,38 +13,138 @@ from kiss import fig_timestamp
 project_path = Path("~/dev_02/EnergyModels/KISS").expanduser().resolve()
 project_path_str = str(project_path)
 print(f'Project path:{project_path}')
-data_path = project_path / 'data' / 'output' / 'reduce_centre_cell_power' / '2023_04_11'
-rccp_data = data_path / 'rsrp_cell'
+data_path = project_path / 'data' / 'output' / 'reduce_centre_cell_power' / '2023_04_12'
+rccp_data = data_path / 'sinr_cell_to_zero_watts'
 
-# # For each tsv file in the directory, read the data into a dataframe and add a
-# #  column for the experiment id (the file name). Then append the dataframes to
-# #  a list.
-# df_list = []
-# for f in rccp_data.glob('*.tsv'):
-#     df = pd.read_csv(f, sep='\t')
-#     # Add a column for the experiment id
-#     df['experiment_id'] = f.stem
-#     df_list.append(df)
-# # Concatenate the list of dataframes into a single dataframe
-# df_cc = pd.concat(df_list, ignore_index=True)
-# # split the experiment_id column on the underscore and drop the last part
-# df_cc["experiment_id"] = df_cc["experiment_id"].str.split("_").str[:-1].str.join("_")
+# Create a generator function that will yeild a dataframe from the tsv files in a directory
+def tsv_to_df_generator(dir_path):
+    for f in dir_path.glob('*.tsv'):
+        df = pd.read_csv(f, sep='\t')
+        # Add a column for the experiment id
+        df['experiment_id'] = f.stem
+        # Split the experiment_id column on the underscore and drop the last part
+        df["experiment_id"] = df["experiment_id"].str.split("_").str[:-1].str.join("_")
+        # Split the experiment id on the underscore and get the 2nd part
+        df["cell9_seed"] = df["experiment_id"].str.split("_").str[1].str.replace("s", "")
+        # Split the experiment id on the underscore and take the 3rd part
+        df["cell9_power"] = df["experiment_id"].str.split("_").str[2].str.replace("p", "")
+        yield df
 
-# # Build a faux index from the experiment id
-# # Split the experiment id on the underscore and get the 2nd part
-# df_cc["cell9_seed"] = df_cc["experiment_id"].str.split("_").str[1].str.replace("s", "")
-# # Split the experiment id on the underscore and take the 3rd part
-# df_cc["cell9_power"] = df_cc["experiment_id"].str.split("_").str[2].str.replace("p", "")
 
-# # write to a feather file
-# df_cc.to_feather(rccp_data / '2023_04_11_rccp_data_best_rsrp.feather')
+# END GOAL:
+# Create four plots:
+# 1. Plot the mean and standard deviation of the total network throughput and cell9 throughput for each cell9_power.
+# 2. Plot the mean and standard deviation of the total network power and cell9 power for each cell9_power.
+# 3. Plot the mean and standard deviation of the total network EE and cell9 EE for each cell9_power.
+# 4. Plot the mean and standard deviation of the total network SE and cell9 SE for each cell9_power.
 
-# Read the feather file into a dataframe
-df_cc = pd.read_feather(rccp_data / '2023_04_11_rccp_data_best_rsrp.feather')
+# Create a generator object from the generator function
+df_generator = tsv_to_df_generator(rccp_data)
 
-# Columns to drop
-snooze_columns = ['time', 'serving_cell_sleep_mode', 'neighbour1_rsrp(dBm)', 'neighbour2_rsrp(dBm)', 'noise_power(dBm)']
-df_cc = df_cc.drop(columns=snooze_columns)
+# Loop through the generator
+for df in df_generator:
+    # Convert the cell9_power and cell9_seed column to a float
+    df['cell9_power'] = df['cell9_power'].astype(float)
+    df['cell9_seed'] = df['cell9_seed'].astype(float)
+
+
+    # Capture the cell9 power and seed for this experiment
+    cell9_power = df['cell9_power'].unique()[0]
+    if cell9_power == '':
+        cell9_power = -2
+    cell9_seed = df['cell9_seed'].unique()[0]
+    
+    
+
+
+    # Get the total number of cells in the network
+    num_cells = df['serving_cell_id'].nunique()
+
+    # Get the total number of cells that are not off (i.e. sc_power > -inf)
+    num_cells_on = df.loc[df['sc_power(dBm)'] > -np.inf, 'serving_cell_id'].nunique()
+
+    # NETWORK GRAPHS:
+    # ----------------
+
+    # CELLS POWERED ON:
+    # -----------------
+    # Get the mean SINR per cell powered on
+    df_sinr = df.loc[df['sc_power(dBm)'] > -np.inf, ['serving_cell_id', 'sinr(dB)']]
+    df_sinr = df_sinr.groupby(by=['serving_cell_id']).agg('mean')
+
+    # Get the mean cell_throughput(Mb/s) per cell powered on
+    df_cell_throughput = df.loc[df['sc_power(dBm)'] > -np.inf, ['serving_cell_id', 'cell_throughput(Mb/s)']]
+    df_cell_throughput = df_cell_throughput.groupby(by=['serving_cell_id']).agg('mean')
+
+    # Get the mean cell_power(kW) per cell powered on
+    df_cell_power = df.loc[df['sc_power(dBm)'] > -np.inf, ['serving_cell_id', 'cell_power(kW)']]
+    df_cell_power = df_cell_power.groupby(by=['serving_cell_id']).agg('mean')
+
+    # Get the mean cell_EE(bits/J) per cell powered on
+    df_cell_ee = df.loc[df['sc_power(dBm)'] > -np.inf, ['serving_cell_id', 'cell_ee(bits/J)']]
+    df_cell_ee = df_cell_ee.groupby(by=['serving_cell_id']).agg('mean')
+
+    # Get the mean cell_SE(bits/s/Hz) per cell powered on
+    df_cell_se = df.loc[df['sc_power(dBm)'] > -np.inf, ['serving_cell_id', 'cell_se(bits/Hz)']]
+    df_cell_se = df_cell_se.groupby(by=['serving_cell_id']).agg('mean')
+
+    # NETWORK GRAPHS: STATIC OUTPUT POWER CELLS
+    # -----------------------------------------
+    # (i.e. cells powered on but not including cell9)
+
+    # Get mean SINR over all cells powered on but not including cell9
+    df_network_sinr_not_cell9 = df.loc[(df['sc_power(dBm)'] > -np.inf) & (df['serving_cell_id'] != 9), ['cell9_power', 'sinr(dB)']]
+    df_network_sinr_not_cell9 = df_network_sinr_not_cell9.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean network_throughput(Mb/s) over all cells powered on but not including cell9
+    df_network_tp_not_cell9 = df.loc[(df['sc_power(dBm)'] > -np.inf) & (df['serving_cell_id'] != 9), ['cell9_power', 'cell_throughput(Mb/s)']]
+    df_network_tp_not_cell9 = df_network_tp_not_cell9.groupby(by=['cell9_power']).agg('mean')
+    
+    # Get the mean network_power(kW) over all cells powered on but not including cell9
+    df_network_power_not_cell9 = df.loc[(df['sc_power(dBm)'] > -np.inf) & (df['serving_cell_id'] != 9), ['cell9_power', 'cell_power(kW)']]
+    df_network_power_not_cell9 = df_network_power_not_cell9.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean network_EE(bits/J) over all cells powered on but not including cell9
+    df_network_ee_not_cell9 = df.loc[(df['sc_power(dBm)'] > -np.inf) & (df['serving_cell_id'] != 9), ['cell9_power', 'cell_ee(bits/J)']]
+    df_network_ee_not_cell9 = df_network_ee_not_cell9.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean network_SE(bits/s/Hz) over all cells powered on but not including cell9
+    df_network_se_not_cell9 = df.loc[(df['sc_power(dBm)'] > -np.inf) & (df['serving_cell_id'] != 9), ['cell9_power', 'cell_se(bits/Hz)']]
+    df_network_se_not_cell9 = df_network_se_not_cell9.groupby(by=['cell9_power']).agg('mean')
+
+    # NETWORK GRAPHS: CELL9 ONLY
+    # --------------------------
+    # (i.e. cell9 powered on)
+
+    # Get the mean SINR for cell9 only (i.e. cell9_power > -inf)
+    df_cell9_sinr = df.loc[(df['cell9_power'] > -np.inf) & (df['serving_cell_id'] == 9), ['cell9_power', 'sinr(dB)']]
+    df_cell9_sinr = df_cell9_sinr.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean throughput for cell9 only (i.e. cell9_power > -inf)
+    df_cell9_tp = df.loc[(df['cell9_power'] > -np.inf) & (df['serving_cell_id'] == 9), ['cell9_power', 'cell_throughput(Mb/s)']]
+    df_cell9_tp = df_cell9_tp.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean power for cell9 only (i.e. cell9_power > -inf)
+    df_cell9_power = df.loc[df['cell9_power'] > -np.inf & (df['serving_cell_id'] == 9), ['cell9_power', 'cell_power(kW)']]
+    df_cell9_power = df_cell9_power.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean EE for cell9 only (i.e. cell9_power > -inf)
+    df_cell9_ee = df.loc[df['cell9_power'] > -np.inf & (df['serving_cell_id'] == 9), ['cell9_power', 'cell_ee(bits/J)']]
+    df_cell9_ee = df_cell9_ee.groupby(by=['cell9_power']).agg('mean')
+
+    # Get the mean SE for cell9 only (i.e. cell9_power > -inf)
+    df_cell9_se = df.loc[df['cell9_power'] > -np.inf & (df['serving_cell_id'] == 9), ['cell9_power', 'cell_se(bits/Hz)']]
+    df_cell9_se = df_cell9_se.groupby(by=['cell9_power']).agg('mean')
+
+
+
+
+
+
+
+
+
+
 
 # Convert the cell9_power column to a float
 df_cc['cell9_power'] = df_cc['cell9_power'].astype(float)

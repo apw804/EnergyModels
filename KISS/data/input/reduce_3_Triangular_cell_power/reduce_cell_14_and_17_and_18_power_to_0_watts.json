@@ -1,5 +1,5 @@
 {
-    "experiment_description": "reduce_centre_cell_power",
+    "experiment_description": "reduce_cell_14_and_17_and_18_power",
     "experiment_version": "0.1",
     "script_name": "kiss",
     "script_version": "0.7",
@@ -13,13 +13,15 @@
     "sim_radius": 1000,
     "h_BS": 25,
     "power_dBm": 43.0,
-    "power_dBm_end": 10.0,
+    "power_dBm_end": "-np.inf",
     "power_dBm_step": 3.0,
     "variable_cell_power_dBm": 0.0,
     "constant_cell_power_dBm": 43.0,
     "n_variable_power_cells": 0,
     "variable_power_target_cells_list": [
-        9
+        14,
+        17,
+        18
     ],
     "nues": 400,
     "h_UT": 1.5,
@@ -27,7 +29,7 @@
     "base_interval": 1.0,
     "mcs_table_number": null,
     "ue_noise_power_dBm": -118,
-    "scenario_profile": "reduce_centre_cell_power",
+    "scenario_profile": "change_inner_ring_power",
     "scenario_n_cells": 0,
     "scenario_delay": 0.0,
     "scenario_SetCellSleep": true,
@@ -43,7 +45,7 @@
         ]
     },
     "mme_cqi_limit": 1,
-    "mme_strategy": "best_rsrp_cell",
+    "mme_strategy": "best_sinr_cell",
     "mme_anti_pingpong": 0.0,
     "mme_verbosity": 0,
     "plotting": false,

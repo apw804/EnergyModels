@@ -147,8 +147,8 @@ class CellOffParameters:
     antennas: int = 0
 
 @dataclass(frozen=True)
-class MacroCellIdleParameters:
-    """ Object for setting macro cell base station parameters, when the cell is IDLE."""
+class MacroCellBasicSleep:
+    """ Object for setting macro cell base station parameters, when the cell is in a basic sleep mode where the PA is turned off."""
     p_max_watts: float = 0.0
     p_static_watts: float = 130.0
     eta_pa: float = 0.0
@@ -204,24 +204,24 @@ class Cellv2(Cell):
         # print(f'Changing Cell[{self.i}] sleep mode from {self.sleep_mode} to {mode}')
         self.sleep_mode = mode
 
-        # If the cell is in REAL sleep state (1-4):
-        if self.sleep_mode in self._SLEEP_MODES[1:]:  
-            orphaned_ues = self.sim.orphaned_ues
+        # # If the cell is in REAL sleep state (1-4):
+        # if self.sleep_mode in self._SLEEP_MODES[1:]:  
+        #     orphaned_ues = self.sim.orphaned_ues
 
-            # DEBUG message
-            print(f'Cell[{self.i}] is in SLEEP_MODE_{self.sleep_mode}')
+        #     # DEBUG message
+        #     print(f'Cell[{self.i}] is in SLEEP_MODE_{self.sleep_mode}')
 
-            # Cellv2.power_dBm should be -inf
-            self.power_dBm = -np.inf
+        #     # Cellv2.power_dBm should be -inf
+        #     self.power_dBm = -np.inf
 
-            # ALL attached UE's should be detached (orphaned)
-            for i in self.attached:
-                ue = self.sim.UEs[i]
-                orphaned_ues.append(i)
-                ue.detach                           # This should also take care of UE throughputs.
+        #     # ALL attached UE's should be detached (orphaned)
+        #     for i in self.attached:
+        #         ue = self.sim.UEs[i]
+        #         orphaned_ues.append(i)
+        #         ue.detach                           # This should also take care of UE throughputs.
             
-            # Orphaned UEs should attach to cells with best RSRP
-            self.sim.mme.attach_ues_to_n_best_rsrp(orphaned_ues)
+        #     # Orphaned UEs should attach to cells with best RSRP
+        #     self.sim.mme.attach_ues_to_n_best_rsrp(orphaned_ues)
 
     
     def get_sleep_mode(self):
@@ -253,6 +253,55 @@ class Cellv2(Cell):
             yield self.sim.env.timeout(self.interval)
     
 
+class UEv2(UE):
+    """ Class to extend the original UE class for extended capabilities"""
+
+    def __init__(self, *args, **kwargs):
+        self.sinr_report = {}
+        self.sinr_dB = None
+        # Put extra class attributes below this line
+        super().__init__(*args, **kwargs)
+
+
+    def get_sinr_from_cell(self, candidate_cell):
+        """
+        Returns the SINR for the UE from the specified cell.
+        """
+        if candidate_cell is None: return 0.0 # 2022-08-08 detached
+        # Reset the SINR
+        sinr_dB = None
+        interference=from_dB(self.noise_power_dBm)*np.ones(candidate_cell.n_subbands)
+        for cell in self.sim.cells:
+            pl_dB=self.pathloss(cell.xyz,self.xyz)
+            antenna_gain_dB=0.0
+            if cell.pattern is not None:
+                vector=self.xyz-cell.xyz # vector pointing from cell to UE
+                angle_degrees=(180.0/math_pi)*atan2(vector[1],vector[0])
+                antenna_gain_dB=cell.pattern(angle_degrees) if callable(cell.pattern) \
+                else cell.pattern[int(angle_degrees)%360]
+            if cell.i==candidate_cell.i: # wanted signal
+                rsrp_dBm=cell.MIMO_gain_dB+antenna_gain_dB+cell.power_dBm-pl_dB
+            else: # unwanted interference
+                received_interference_power=antenna_gain_dB+cell.power_dBm-pl_dB
+                interference+=from_dB(received_interference_power)*cell.subband_mask
+        rsrp=from_dB(rsrp_dBm)
+        sinr_dB=to_dB(rsrp/interference) # scalar/array
+        return sinr_dB
+
+    def get_sinr_report(self):
+        """
+        Scans all cells in the network and returns the SINR report for the UE.
+        """
+        # Reset the SINR reports
+        self.sinr_report = {}
+        for cell_n in self.sim.cells:
+            # Store the SINR for each cell in the simulation  (key: cell.i, value: (time, SINR))
+            self.sinr_report[cell_n.i] = (self.sim.env.now, 
+                                          self.get_sinr_from_cell(candidate_cell=cell_n))
+        return self.sinr_report
+
+
+
 class Simv2(Sim):
     """ Class to extend original Sim class for extended capabilities from sub-classing."""
     def __init__(self, *args, **kwargs):
@@ -261,14 +310,35 @@ class Simv2(Sim):
         super().__init__(*args, **kwargs)
     
     def make_cellv2(self, **cell_kwargs):
-            ''' 
-            Convenience function: make a new Cellv2 instance and add it to the simulation; parameters as for the Cell class. Return the new Cellv2 instance.).
-            '''
-            self.cells.append(Cellv2(self,**cell_kwargs))
-            xyz=self.cells[-1].get_xyz()
-            self.cell_locations=np.vstack([self.cell_locations,xyz])
-            return self.cells[-1]
+        ''' 
+        Convenience function: make a new Cellv2 instance and add it to the simulation; parameters as for the Cell class. Return the new Cellv2 instance.).
+        '''
+        self.cells.append(Cellv2(self,**cell_kwargs))
+        xyz=self.cells[-1].get_xyz()
+        self.cell_locations=np.vstack([self.cell_locations,xyz])
+        return self.cells[-1]
     
+    def make_UEv2(s,**kwargs):
+        '''
+        Convenience function: make a new UE instance and add it to the simulation; parameters as for the UEv2 class. Return the new UE instance.
+        '''
+        s.UEs.append(UEv2(s,**kwargs))
+        return s.UEs[-1]
+    
+    def get_best_sinr_cell(self, ue_id):
+        """
+        Returns the cell with the best SINR for the specified UE.
+        """
+        j, best_sinr = None, -np.inf
+        ue = self.UEs[ue_id]
+        ue_sinr_reports = ue.get_sinr_report()
+        for cell in self.cells:
+            if cell.i not in ue_sinr_reports: continue
+            time, sinr = ue_sinr_reports[cell.i]
+            avg_sinr = np.average(sinr)
+            if avg_sinr > best_sinr:
+                j, best_sinr = cell.i, avg_sinr
+        return j
 
 class AMFv1(MME):
     """
@@ -315,76 +385,56 @@ class AMFv1(MME):
         # Finally, clear the `self.poor_cqi_ues` list
         self.poor_cqi_ues.clear()
 
-    @classmethod
-    def attach_ue_to_best_rsrp(cls, ue_id):
+    def do_handovers(self):
         """
-        Accepts a UE ID. Attaches UE to the cell that gives it the best rsrp cell.
+        Performs handovers for all UEs in the simulation.
         """
-        ue = [ue for ue in cls.sim.UEs if ue.i == ue_id]
-        best_cell = cls.sim.get_best_rsrp_cell(ue_i=ue.i)
-        ue.detach()
-        if best_cell is not None:
-            ue.attach(best_cell)
+        # First, check if the strategy attribute of the class is set to 'best_sinr_cell'.
+        if self.strategy == 'best_sinr_cell':
+            # Iterate over all UEs in the simulation.
+            for ue in self.sim.UEs:
+                if ue.serving_cell is None: continue
+                oldcelli=ue.serving_cell.i # 2022-08-26
+                sinr_before=ue.get_sinr_from_cell(ue.serving_cell)
+                CQI_before=ue.serving_cell.get_UE_CQI(ue.i)
+                previous,tm=ue.serving_cell_ids[1]
 
-    # FIXME - testing to see if changing to a classmethod will allow me to call it from a Scenario class.
-    @classmethod
-    def attach_ues_to_n_best_rsrp(cls, ues, n=0):
-        """
-        Accepts a list of UEs. Attaches UE to the cell that gives it the Nth best rsrp cell, where N is the rank of the RSRP value. 
-        
-        N = 0 is the best RSRP value.
-        N = 1 is the second best RSRP value.
-        If N is greater than the number of cells in the simulation, the UE will be attached to the cell with the best RSRP value.
+                # Get the best SINR cell for the UE.
+                celli = self.sim.get_best_sinr_cell(ue.i)
 
-        Prints to stdout, the UEs that will be handed over and the cell that the UE will be handed over to.
-        """
-        # Print to stdout, the UEs that will be handed over
-        print(f'Handing over UEs: {ues}')
-        for ue_i in list(ues):
-            ue = cls.sim.UEs[ue_i]
-            # If N is greater than the number of cells in the simulation, the UE will be attached to the cell with the best RSRP value.
-            if n > len(cls.sim.cells):
-                n = 0
-                # Get the cell that the UE will be handed over to.
-                celli=cls.sim.get_best_rsrp_cell(ue_i)
-
-            # If N is less than or equal to the number of cells in the simulation, the UE will be attached to the cell with the Nth best RSRP value.
-            if n <= len(cls.sim.cells):
-                # Get the cell that the UE will be handed over to.
-                celli, cell_rsrp=cls.sim.loggers[0].get_neighbour_cell_rsrp_rank(ue_id=ue_i, neighbour_rank=n)
-
-                # Print to stdout, the cell that the UE will be handed over to.
-                print(f'Handing over UE[{ue_i}] to Cell[{celli}]')
-                # Detach the UE from it's current serving cell.
-                old_cell = ue.serving_cell.i
-                ue.detach()
-                print(f'UE[{ue_i}] has been detached from Cell[{old_cell}].')
-                # Attach the UE to the new cell.
-                ue.attach(cls.sim.cells[celli])
-                print(f'UE[{ue_i}] has been attached to Cell[{celli}].')
-                # Send RSRP and CQI reports to the new cell.
+                if celli==ue.serving_cell.i: continue
+                if self.anti_pingpong>0.0 and previous==celli:
+                    if self.sim.env.now-tm<self.anti_pingpong:
+                        if self.verbosity>2:
+                            print(f't={float(self.sim.env.now):8.2f} handover of UE[{ue.i}] suppressed by anti_pingpong heuristic.',file=stderr)
+                        continue # not enough time since we were last on this cell
+                ue.detach(quiet=True)
+                ue.attach(self.sim.cells[celli])
                 ue.send_rsrp_reports() # make sure we have reports immediately
                 ue.send_subband_cqi_report()
-                print(f'UE[{ue_i}] has sent RSRP and CQI reports to Cell[{celli}].')
+                CQI_after=ue.serving_cell.get_UE_CQI(ue.i)
+                sinr_after = ue.get_sinr_from_cell(ue.serving_cell)
+                # Print the handover event.
+                print(f't={float(self.sim.env.now):.2f} handover of UE[{ue.i:3}] from Cell[{oldcelli:3}] to Cell[{ue.serving_cell.i:3}]',file=stderr,end=' ')
+                print(f'CQI change {CQI_before} -> {CQI_after}',file=stderr)
+                print(f'SINR change {sinr_before} -> {sinr_after}',file=stderr)
 
-    def best_sinr_cell():
-           # TODO - write function to replace the 'best_rsrp_cell' strategy.
-        pass
+        # If the strategy is not best_sinr_cell, then perform the normal handover procedure.      
+        else:
+            super().do_handovers()
 
     def loop(self):
         '''
         Main loop of AMFv1.
         '''
-        while self.sim.env.now < 1:    # At t=0 there will not be handover events
-            yield self.sim.env.timeout(0.5*self.interval)   # So we stagger the MME startup by 0.5*interval
+        if self.sim.env.now==0.0:
+            yield self.sim.env.timeout(0.5*self.interval)   # We stagger the MME startup
         print(f'MME started at {float(self.sim.env.now):.2f}, using strategy="{self.strategy}" and anti_pingpong={self.anti_pingpong:.0f}.',file=stderr)
         while True:
             self.do_handovers()
-            self.detach_low_cqi_ue()
             yield self.sim.env.timeout(self.interval)
     
     def finalize(self):
-        self.detach_low_cqi_ue()
         super().finalize()
 
 
@@ -894,7 +944,7 @@ class MyLogger(Logger):
         sc_id = cell.i                                              # current cell
         sc_sleep_mode = cell.get_sleep_mode()                       # current cell sleep mode status
         sc_xy = cell.get_xyz()[:2]                                  # current cell xy position
-        ue_id = float('nan')                                        # UE ID
+        ue_id = None                                                # UE ID
         ue_xy = float('nan')                                        # UE xy position
         d2sc = float('nan')                                         # distance to serving_cell
         ue_tp = float('nan')                                        # UE throughput ('fundamental')
@@ -991,8 +1041,8 @@ class MyLogger(Logger):
         df1 = df.copy()
 
         # Convert all NaN and -np.inf values to 0.0
-        df1 = df1.replace([np.inf, -np.inf], np.nan)
-        df1 = df1.fillna(0.0)
+        # df1 = df1.replace([np.inf, -np.inf], np.nan)
+        # df1 = df1.fillna(0.0)
 
         # Find empty values in the dataframe and replace with NaN
         df1 = df1.replace(r'^\s*$', np.nan, regex=True)
@@ -1347,15 +1397,12 @@ def main(config_dict):
     plot_author = config_dict.get("plot_author")
     mcs_table_number = config_dict["mcs_table_number"]
 
-    # Create a log file path
-    data_output_logfile_path = create_logfile_path(config_dict)
-
     # Create a simulator object
     sim = Simv2(rng_seed=seed, show_params=sim_show_params)
     sim.seed = seed
 
-    # Create instance of UMa-NLOS pathloss model
-    pl_uma_nlos = UMa_pathloss(LOS=False)
+    # Create a log file path
+    data_output_logfile_path = create_logfile_path(config_dict)
 
     # Create the 19-cell hex-grid and place Cell instance at the centre
     sim_hexgrid_centres, hexgrid_plot = hex_grid_setup(isd=isd, sim_radius=sim_radius, plot=plotting, watermark=plot_cell_id_watermark)
@@ -1371,22 +1418,6 @@ def main(config_dict):
         cell_energy_models_dict[cell.i] = (CellEnergyModel(cell))
         cell.set_f_callback(cell_energy_models_dict[cell.i].f_callback(cell))
 
-    # Generate UE positions using PPP
-    ue_ppp = generate_ppp_points(sim=sim, 
-                                 expected_pts=nues, 
-                                 sim_radius=sim_radius,)
-    for i in ue_ppp:
-        x, y = i
-        ue_xyz = x, y, h_UT
-        ue = sim.make_UE(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=0)
-        ue.noise_power_dBm = ue_noise_power_dBm
-        ue.detach()
-        best_cell = sim.get_best_rsrp_cell(ue_i=ue.i)
-        if best_cell is not None:
-            ue.attach(best_cell)
-            
-
-
     # Add the logger to the simulator
     custom_logger = MyLogger(sim,
                              logging_interval = base_interval, 
@@ -1394,9 +1425,7 @@ def main(config_dict):
                              logfile_path = ".".join([data_output_logfile_path, "tsv"]))
     sim.add_logger(custom_logger)
 
-
-
-    # Add scenarios to simulation
+    # Define scenario options for simulation
     reduce_random_cell_power = ChangeCellPower(
         sim, 
         n_cells=n_variable_power_cells,
@@ -1415,7 +1444,16 @@ def main(config_dict):
     
     change_outer_ring_power = ChangeCellPower(
         sim, 
+        delay=scenario_delay,
+        cells=variable_power_target_cells_list, 
+        new_power=variable_cell_power_dBm, 
+        interval=base_interval
+        )
+    
+    change_inner_ring_power = ChangeCellPower(
+        sim, 
         delay=scenario_delay, 
+        cells=variable_power_target_cells_list,
         new_power=variable_cell_power_dBm, 
         interval=base_interval
         )
@@ -1432,7 +1470,7 @@ def main(config_dict):
         interval=base_interval, 
         time_cell_sleep_level_duration=SetCellSleep_bedtime_stories
         )
-
+    
     # Activate scenarios
     if scenario_profile == "reduce_random_cell_power":
         sim.add_scenario(scenario=reduce_random_cell_power)
@@ -1440,6 +1478,8 @@ def main(config_dict):
         sim.add_scenario(scenario=reduce_centre_cell_power)
     elif scenario_profile == "change_outer_ring_power":
         sim.add_scenario(scenario=change_outer_ring_power)
+    elif scenario_profile == "change_inner_ring_power":
+        sim.add_scenario(scenario=change_inner_ring_power)
     elif scenario_profile == "switch_n_cells_off":
         sim.add_scenario(scenario=switch_n_cells_off)
     elif scenario_profile == "set_cell_sleep":
@@ -1448,13 +1488,36 @@ def main(config_dict):
         pass
     else:
         raise ValueError("Scenario profile not recognised")
-
-
+    
     # Add MME for handovers
-    default_mme = AMFv1(sim, cqi_limit=mme_cqi_limit, interval=base_interval,strategy=mme_strategy, anti_pingpong=mme_anti_pingpong,verbosity=mme_verbosity)
+    default_mme = AMFv1(sim, 
+                        cqi_limit=mme_cqi_limit, 
+                        interval=base_interval,
+                        strategy=mme_strategy, 
+                        anti_pingpong=mme_anti_pingpong,
+                        verbosity=mme_verbosity)
     sim.add_MME(mme=default_mme)
 
-    # Plot UEs if desired (uncomment to activate)
+
+    # Create instance of UMa-NLOS pathloss model
+    pl_uma_nlos = UMa_pathloss(LOS=False)
+
+    # Generate UE positions using PPP
+    ue_ppp = generate_ppp_points(sim=sim, 
+                                 expected_pts=nues, 
+                                 sim_radius=sim_radius,)
+    
+    for i in ue_ppp:
+        x, y = i
+        ue_xyz = x, y, h_UT
+        sim.make_UEv2(xyz=ue_xyz,reporting_interval=base_interval,pathloss_model=pl_uma_nlos, verbosity=0).attach_to_strongest_cell_simple_pathloss_model()
+    
+    # Change the noise_power_dBm
+    for ue in sim.UEs:
+        ue.noise_power_dBm=ue_noise_power_dBm
+
+
+    # Plot UEs if desired
     if plot_ues:
         plot_ues_fig(sim=sim, ue_ids_start=plot_ues_start, ue_ids_end=plot_ues_end ,show_labels=plot_ues_show_labels, labels_start=plot_ues_labels_start, labels_end=plot_ues_labels_end)
         fig_timestamp(fig=hexgrid_plot, author=plot_author)

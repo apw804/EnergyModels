@@ -17,8 +17,8 @@ from kiss import fig_timestamp
 project_path = Path("~/dev_02/EnergyModels/KISS").expanduser().resolve()
 project_path_str = str(project_path)
 print(f'Project path:{project_path}')
-data_path = project_path / 'data' / 'output' / 'reduce_centre_cell_power' / '2023_03_28'
-rccp_data = data_path / 'reduce_centre_cell_power'
+data_path = project_path / 'data' / 'output' / 'reduce_centre_cell_power' / '2023_04_11'
+rccp_data = data_path / 'rsrp_cell'
 
 # # For each tsv file in the directory, read the data into a dataframe and add a
 # #  column for the experiment id (the file name). Then append the dataframes to
@@ -44,7 +44,7 @@ rccp_data = data_path / 'reduce_centre_cell_power'
 # df_cc.to_feather(rccp_data / '2023_03_28_rccp_data.feather')
 
 # Read the feather file into a dataframe
-df_cc = pd.read_feather(rccp_data / '2023_03_28_rccp_data.feather')
+df_cc = pd.read_feather(rccp_data / '2023_04_11_rccp_data_best_rsrp.feather')
 
 # Columns to drop
 snooze_columns = ['time', 'serving_cell_sleep_mode', 'neighbour1_rsrp(dBm)', 'neighbour2_rsrp(dBm)', 'noise_power(dBm)']
@@ -77,7 +77,6 @@ df_cc_mean.columns = ['_'.join(col).strip() for col in df_cc_mean.columns.values
 
 df_in_mean = df_in_condensed.groupby(level=['cell9_power'])[interesting_cols].agg(['mean', 'std'])
 df_in_mean.columns = ['_'.join(col).strip() for col in df_in_mean.columns.values]
-
 
 
 # Do a plot for centre cell power vs throughput
@@ -193,4 +192,4 @@ fig.suptitle('Cell 9 vs Immediate Neighbours for varying Cell 9 power levels')
 # import the fig_timestamp from a file in a parent directory
 fig_timestamp(fig, author='Kishan Sthankiya')
 plt.tight_layout()
-plt.savefig('cell9_vs_immediate_neighbours.png', dpi=300)
+plt.savefig('2023_04_11_cell9_vs_immediate_neighbours_best_rsrp.pdf', dpi=300, format='pdf')

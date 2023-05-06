@@ -5,8 +5,6 @@
   "version": "0.2.0",
   "configurations": [
 
-
-
     {
       "name": "Python: Current File",
       "type": "python",
@@ -124,5 +122,41 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/KISS"
     },
+    {
+      "name": "REDUCE_CENTRE_CELL_POWER: run_kiss.py with test_02_reduce_centre_cell_power.json",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
+      "args": [
+        "-c",
+        "data/input/reduce_centre_cell_power/test_02_reduce_centre_cell_power.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
+    {
+      "name": "RCCP_04_RSRP_0_WATTS: run_kiss.py with 04_reduce_centre_cell_power_best_rsrp_to_0_watts.json",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
+      "args": [
+        "-c",
+        "data/input/reduce_centre_cell_power/04_reduce_centre_cell_power_best_rsrp_to_0_watts.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
+    {
+      "name": "RCCP_05_SINR_0_WATTS: run_kiss.py with 05_reduce_centre_cell_power_best_sinr_to_0_watts.json",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
+      "args": [
+        "-c",
+        "data/input/reduce_centre_cell_power/05_reduce_centre_cell_power_best_sinr_to_0_watts.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    }
 ]
 }

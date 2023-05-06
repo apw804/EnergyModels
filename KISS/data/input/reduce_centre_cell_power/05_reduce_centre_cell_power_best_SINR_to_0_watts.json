@@ -13,7 +13,7 @@
     "sim_radius": 1000,
     "h_BS": 25,
     "power_dBm": 43.0,
-    "power_dBm_end": 10.0,
+    "power_dBm_end": "-np.inf",
     "power_dBm_step": 3.0,
     "variable_cell_power_dBm": 0.0,
     "constant_cell_power_dBm": 43.0,
@@ -43,7 +43,7 @@
         ]
     },
     "mme_cqi_limit": 1,
-    "mme_strategy": "best_rsrp_cell",
+    "mme_strategy": "best_sinr_cell",
     "mme_anti_pingpong": 0.0,
     "mme_verbosity": 0,
     "plotting": false,
