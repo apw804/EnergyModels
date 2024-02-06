@@ -22,5 +22,15 @@
       "console": "integratedTerminal",
       "justMyCode": true
     }
+    {
+      "name": "TEST: kiss.py with GLOBECOM hexgrid",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/kiss.py",
+      "args": ["${workspaceFolder}/_test/data/input/kiss/test_kiss.json"],
+      "cwd": "${workspaceFolder}/KISS",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
   ]
-}
+}x

@@ -1,13 +1,4 @@
-# KISS (Keep It Simple Stupid!) v3
-# Now gets the dataframe output as floats instead of np.ndarrays
-# FIXME - need to finish integrating the NR_5G_standard... max cell throughput
-# Scenario: Runs Richard's suggestion to reduce the cell power of the outer ring of cells.
-# FIXME - add the AMF to limit the UEs that are attached to Cells based on whether they have a CQI>0
-# Added the updated MCS table2 from PHY.py-data-procedures to override NR_5G_standard_functions.MCS_to_Qm_table_64QAM
-# Adding sleep mode by subclassing Cell and Sim
-# Refactored components from ReduceCellPower_14.py: CellEnergyModel
-# THIS IS KISS_PROFILED.PY
-
+# KISS (Keep It Simple Silly!) v3
 
 import argparse
 import dataclasses
@@ -1132,40 +1123,83 @@ def random_time_interval(sim, min_time_us, max_time_us):
     time_interval_us = rng.uniform(min_time_us, max_time_us)  # Uniform distribution between min and max
     return time_interval_us 
 
-
-
-def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_points=None, exclusion_radius=None):
+class PointGenerator:
     """
-    Generates points distributed according to a homogeneous Poisson point process (PPP) in a disk, while ensuring that points are not placed within a certain radius of given coordinates.
+    A class used to generate random points within a circular region
 
-    Parameters
+    ...
+
+    Attributes
     ----------
-    sim : object
-        An instance of the simulation.
-    expected_pts : int, optional
-        The expected number of points in the PPP. Default is 100.
-    sim_radius : float, optional
-        The radius of the simulation disk. Default is 500.0.
-    cell_centre_points : np.ndarray, optional
-        An Nx2 numpy array of the Cartesian coordinates of the exclusion zone centres. Default is None.
-    exclusion_radius : float, optional
-        A float value that specifies the radius in meters for which the function ensures that points are not placed within this radius of the coordinates in cell_centre_points. Default is None.
+    rng : random number generator
+        an instance of numpy random generator
 
-    Returns
+    Methods
     -------
-    np.ndarray
-        An Mx2 numpy array of the Cartesian coordinates of the PPP points.
-
-    Notes
-    -----
-    The intensity (ie mean density) of the PPP is calculated as the expected number of points 
-    divided by the area of the simulation disk. The simulation disk is centered at the origin.
-    The generated points are distributed uniformly in the disk using polar coordinates and 
-    then converted to Cartesian coordinates. The center of the disk is shifted to (0, 0).
-    If cell_centre_points and exclusion_radius are provided, points within the exclusion zone 
-    are removed from the PPP.
-
+    generate_points(expected_pts, sim_radius, cell_centre_points=None, exclusion_radius=None)
+        Generate a number of random points within a specified radius
     """
+
+    def __init__(self, rng):
+        """
+        Constructs all the necessary attributes for the PointGenerator object.
+
+        Parameters
+        ----------
+        rng : random number generator
+            an instance of numpy random generator
+        """
+
+        self.rng = rng
+    
+    def generate_points(self, expected_pts, sim_radius, cell_centre_points=None, exclusion_radius=None):
+            """
+            Generate a number of random points within a specified radius using a variant of a Homogeneous Poisson Point Process (HPPP). If centre points and exclusion radius are provided, points within the exclusion radius of any centre point are removed. This exclusion feature makes the point process a kind of "restricted" Poisson point process or a simplified version of Matérn type III hard-core process.
+
+            Parameters
+            ----------
+            expected_pts : int
+                The expected number of points to generate
+            sim_radius : float
+                The radius within which the points will be generated
+            cell_centre_points : array-like, optional
+                The coordinates of centre points around which to exclude generated points (default is None)
+            exclusion_radius : float, optional
+                The radius around each centre point within which points will be excluded (default is None)
+
+            Returns
+            -------
+            points : array-like
+                The generated points in the format of a 2D numpy array where each row represents a point
+                and the columns represent the x and y coordinates respectively
+            """
+
+            sim_rng = self.rng
+            areaTotal = np.pi * sim_radius ** 2
+            lambda0 = expected_pts / areaTotal
+            points = np.empty((0, 2))
+
+            while points.shape[0] < expected_pts:
+                numbPoints = sim_rng.poisson(lambda0 * areaTotal)
+                theta = 2 * np.pi * sim_rng.uniform(0, 1, numbPoints)
+                rho = sim_radius * np.sqrt(sim_rng.uniform(0, 1, numbPoints))
+                xx = rho * np.cos(theta)
+                yy = rho * np.sin(theta)
+
+                if cell_centre_points is not None and exclusion_radius is not None:
+                    dists = np.linalg.norm(cell_centre_points - np.array([xx, yy]), axis=1)
+                    indices = np.where(dists > exclusion_radius)[0]
+                    xx = xx[indices]
+                    yy = yy[indices]
+
+                points = np.vstack((points, np.column_stack((xx, yy))))
+
+            points = points[:expected_pts]
+            return points
+
+
+def generate_ppp_points(sim, type=None, expected_pts=100, sim_radius=500.0, cell_centre_points=None, exclusion_radius=None):
+
     sim_rng = sim.rng
 
     sim_radius = sim_radius
@@ -1207,6 +1241,7 @@ def generate_ppp_points(sim, expected_pts=100, sim_radius=500.0, cell_centre_poi
     # kiss_debugger.debug(f"{remove_count} points were removed from the exclusion zone.")
     
     return points
+
 
 
 def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float = 1000.0, plot: bool = False, watermark: bool = False):
@@ -1287,7 +1322,7 @@ def hex_grid_setup(origin: tuple = (0, 0), isd: float = 500.0, sim_radius: float
                 plt.text(x + isd / 3 - 0.3e3, y - isd /3 + 0.33e3, str(i), fontsize=10, ha='center', va='center', color='purple', alpha=0.63, weight='bold')
         
         return hexgrid_xy, None
-
+    
 
 
 def fig_timestamp(fig, author='', fontsize=6, color='gray', alpha=0.7, rotation=0, prespace='  '):
@@ -1502,6 +1537,17 @@ def main(config_dict):
     # Create instance of UMa-NLOS pathloss model
     pl_uma_nlos = UMa_pathloss(LOS=False)
 
+    
+    point_generator = PointGenerator(sim.rng)
+    ue_positions = point_generator.generate_points(expected_pts=nues, sim_radius=sim_radius)
+    for position in ue_positions:
+        x, y = position
+        ue_xyz = x, y, h_UT
+        ue = sim.make_UEv2(xyz=ue_xyz, reporting_interval=base_interval, pathloss_model=pl_uma_nlos, verbosity=0)
+        ue.attach_to_strongest_cell_simple_pathloss_model()
+
+
+
     # Generate UE positions using PPP
     ue_ppp = generate_ppp_points(sim=sim, 
                                  expected_pts=nues, 
@@ -1552,40 +1598,6 @@ if __name__ == '__main__':
     with open(config_file, "r") as f:
         config = json.load(f)
 
-    # If debug_logging is enabled, create a logger object
-    # if config["debug_logging"]:
-    #     try:
-    #         from logging_kiss import get_logger
-            # If successful, create a logger object
-            #if callable(get_logger):
-                # Create a log file path
-                #  kiss_debugger_outfile_path = create_logfile_path(
-                #     config_dict=config, 
-                #     debug_logger=True
-                #     )
-                #  Create a logger object
-                #  kiss_debugger = get_logger(
-                #     logger_name="# kiss_debugger",
-                #     logfile_path=# kiss_debugger_outfile_path,
-                #     log_level=config["debug_logging_level"],
-                #     )
-    #     except ImportError:
-    #         print("logging_kiss not installed. debug_logging disabled.")
-    #         config["debug_logging"] = False
-    # else:
-    #     # If debug_logging is disabled, create a dummy logger object
-    #     import logging
-    #     class DummyLogger(logging.Logger):
-    #         def __init__(self, name):
-    #             super().__init__(name, level=logging.NOTSET)
-
-    #         def _log(self, *args, **kwargs):
-    #             pass
-
-        # Create a DummyLogger object
-        # kiss_debugger = DummyLogger("# kiss_debugger")
-
-
     # Import plt if plotting is enabled
     if config["plotting"]:
         try:
@@ -1629,6 +1641,4 @@ if __name__ == '__main__':
     # End timer
     end_time = time()
 
-    # Log total time taken
-    # kiss_debugger.info("Total time taken (s): {}".format(end_time - start_time))
 

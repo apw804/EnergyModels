@@ -19,6 +19,12 @@ Advanced method:
 3) Pass these parameters to the Transport Block Size (TBS) determining function
 """
 
+import json
+
+def save_table_as_json(table, filename):
+    with open(filename, 'w') as file:
+        json.dump(table, file, indent=4) 
+
 mcs_table_1 = {
   0:  (2, 120, 0.2344),
   1:  (2, 157, 0.3066),
@@ -156,3 +162,4 @@ mcs_table_4 = {
  31: (10, 'reserved', 'reserved')}
 
 # 4.1 Power allocation for downlink
+

@@ -11,5 +11,6 @@
   "python.testing.unittestEnabled": true,
   "python.analysis.extraPaths": [
     "./KISS"
-  ]
+  ],
+  "workbench.colorTheme": "Default Light+"
 }

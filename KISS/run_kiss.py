@@ -7,37 +7,45 @@ import time
 import numpy as np
 import signal
 
-# Define a signal handler function to handle the SIGINT and SIGTERM signals
+
 def signal_handler(signum, frame):
-    # Print a message to the console
+    """
+    Signal handler function that is called when a signal is received.
+
+    Args:
+        signum (int): The signal number.
+        frame (frame): The current stack frame.
+
+    Returns:
+        None
+    """
+
     print(f"Received signal {signum}, exiting...")
-
-    # Remove the temporary JSON files
     remove_temp_json(json_file_list)
-
-    # Exit the program
     exit(1)
 
 
 def generate_config_dict_list(config_file):
+    """
+    Generate a list of dictionaries containing different configurations based on the input JSON file.
+
+    Args:
+        config_file (str): The path to the JSON file containing the configuration.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a different configuration.
+    """
+
     # Load the contents of the JSON file into a dictionary
     with open(config_file) as f:
         config = json.load(f)
 
-    # Extract the maximum seed value from the dictionary
     seed_max = config['seed']
-
-    # Extract the power_dBm value from the dictionary
     power_dBm = config['power_dBm']
-
-    # Extract the power_dBm_end value from the dictionary
     power_dBm_end = config['power_dBm_end']
-
-    # Extract the power_dBm_step value from the dictionary
     power_dBm_step = config['power_dBm_step']
 
     # Define the range of power values to test
-    # If the start and finish power values are the same, then only one power value will be tested
     if power_dBm == power_dBm_end:
         power_values = [power_dBm]
     # If the finish power value is `-inf` then the range of power values will be from the start power value to `0dBm` in steps of `power_dBm_step`, and then an additional value of `-np.inf` will be added to the end of the list
@@ -47,7 +55,7 @@ def generate_config_dict_list(config_file):
     else:
         power_values = np.arange(power_dBm, power_dBm_end-power_dBm_step, -power_dBm_step)
 
-    # Define the range of seed values to test 
+    # Seed values to test 
     seeds = list(range(seed_max))
 
     # Define the number range of variable power cells
@@ -84,6 +92,8 @@ def generate_config_dict_list(config_file):
 
     # Return the list of dictionaries
     return config_dict_list
+
+
 
 # Define a function that dumps all dictionaries in a list to an individual JSON files and return the absolute path of the JSON file as a string
 def dump_json(config_dict_list):
@@ -167,7 +177,7 @@ if __name__ == '__main__':
         '--config-file',
         type=str,
         required=True,
-        default='KISS/_test/data/input/kiss/test_kiss.json'
+        default='_test/data/input/kiss/test_kiss.json'
     )
     
     args = parser.parse_args()
@@ -188,7 +198,7 @@ if __name__ == '__main__':
     with mp.Pool(processes=num_processes, maxtasksperchild=num_tasks_per_child) as pool:
         # Run the run_kiss function on each JSON file in the list
         for json_file in json_file_list:
-            pool.apply(run_kiss, args=(json_file,)) # Try this again with map and see what happens
+            pool.apply(run_kiss, args=(json_file,)) 
 
             # Increment the progress counter by 1
             with progress_counter.get_lock():

@@ -15,6 +15,18 @@
       "justMyCode": true
     },
     {
+      "name": "Debug: run_kiss.py with test_kiss_GLOBECOM_hexgrid.json",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/KISS/run_kiss.py",
+      "args": [
+        "-c",
+        "_test/data/input/kiss/test_kiss_plot_GLOBECOM_hexgrid.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/KISS"
+    },
+    {
       "name": "Debug: run_kiss.py with test_kiss.json",
       "type": "python",
       "request": "launch",
