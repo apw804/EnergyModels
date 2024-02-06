@@ -1,7 +1,7 @@
 # EnergyModels
 
 ## Description
-EnergyModels is an extension to the [AIMM simulator](https://github.com/keithbriggs/AIMM-simulator),open-source discrete event system level simulator for 5G new radio created by [Keith Briggs](https://keithbriggs.info/). The EnergyModels package additionally provides energy efficiency modelling and rapid prototyping of scenarios with hundreds of users and tens of base stations in a standalone macro network.
+EnergyModels is an extension to the [AIMM simulator](https://github.com/keithbriggs/AIMM-simulator), an open-source discrete event system level simulator for 5G new radio created by [Keith Briggs](https://keithbriggs.info/). The EnergyModels package additionally provides energy efficiency modelling and rapid prototyping of scenarios with hundreds of users and tens of base stations in a standalone macro network.
 
 ## Table of Contents
 - [Dependencies](#dependencies)
