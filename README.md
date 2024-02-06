@@ -22,10 +22,12 @@ This module requires:
 
 
 ## Installation
-In a virtual environment with Python 3.8 or greater: 
+1. In a virtual environment with Python 3.8 or greater: 
 ```
 pip install numpy simpy matplotlib pandas AIMM-simulator hexalattice
 ```
+2. Download the EnergyModels repo as a `.zip` and extract to a folder of your choice.
+3. Open a terminal and navigate to the above folder.
 
 ## Usage
 To run the EnergyModels repository, 
