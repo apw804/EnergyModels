@@ -43,7 +43,7 @@ python run_kiss.py -c data/input/outer_cells_constant/outer_cells_constant.json
 ``` 
 will execute a scenario with 12 users, while the inner cells reduce their transmit power in increments of 3dB. 
 
-NOTE: Temporary json files will be created in the `/KISS` subfolder. These will be automatically removed when the simulation is complete OR if exited early by pressing <kbd>Ctrl</kbd>+<kbd>c</kbd>.
+NOTE: Temporary json files will be created in the `/KISS` subfolder. These will be automatically removed when the simulation is complete OR if exited early by pressing <kbd>^ Ctrl</kbd>+<kbd>C</kbd>.
 
 ## Contact
 For any inquiries or questions, please contact k.sthankiya@qmul.ac.uk.
